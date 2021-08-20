@@ -49,7 +49,7 @@ func NewCommand() *cobra.Command {
 			http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 				parts := strings.Split(r.URL.Path, "/")
 				query := r.URL.Query()
-				fmt.Printf("%s %q (%d) %q\n", r.Method, parts, len(parts), query)
+				fmt.Printf("%s (%d) %q %q\n", r.Method, len(parts), parts, query)
 				switch parts[1] {
 				case "api":
 					server.api(w, r, parts, disco)
@@ -58,7 +58,7 @@ func NewCommand() *cobra.Command {
 				case "openapi":
 					server.openapi(w)
 				default:
-					serverError(w, fmt.Errorf("unknown %q", parts[1]))
+					nok(w, fmt.Errorf("unknown %q", parts[1]))
 				}
 			})
 			fmt.Printf("starting on %q\n", server.Addr)

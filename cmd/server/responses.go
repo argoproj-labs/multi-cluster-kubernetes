@@ -14,7 +14,7 @@ import (
 
 func done(w http.ResponseWriter, v interface{}, err error) {
 	if err != nil {
-		serverError(w, err)
+		nok(w, err)
 	} else {
 		ok(w, v)
 	}
@@ -43,13 +43,21 @@ func stream(w http.ResponseWriter, watch watch.Interface, clusterName, resource 
 	}
 }
 
-func serverError(w http.ResponseWriter, err error) {
-	fmt.Printf("500\n")
+func nok(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-	_ = json.NewEncoder(io.MultiWriter(os.Stderr, w)).Encode(metav1.Status{
-		Status:  "Failure",
-		Reason:  errors.ReasonForError(err),
-		Message: err.Error(),
-	})
+	statusError, ok := err.(*errors.StatusError)
+	if ok {
+		code := int(statusError.ErrStatus.Code)
+		fmt.Printf("%d\n", code)
+		w.WriteHeader(code)
+		_ = json.NewEncoder(io.MultiWriter(os.Stderr, w)).Encode(statusError.ErrStatus)
+	} else {
+		fmt.Printf("500\n")
+		w.WriteHeader(500)
+		_ = json.NewEncoder(io.MultiWriter(os.Stderr, w)).Encode(metav1.Status{
+			Status:  "Failure",
+			Reason:  errors.ReasonForError(err),
+			Message: err.Error(),
+		})
+	}
 }
