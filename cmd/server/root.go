@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"net/http"
@@ -32,18 +33,22 @@ func NewCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			configs := make(map[string]*rest.Config)
 			clients := make(map[string]dynamic.Interface)
 			for clusterName, data := range secret.Data {
 				c := &clusters.Config{}
 				if err := json.Unmarshal(data, c); err != nil {
 					return err
 				}
-				clients[clusterName] = dynamic.NewForConfigOrDie(c.RestConfig())
+				config := c.RestConfig()
+				configs[clusterName] = config
+				clients[clusterName] = dynamic.NewForConfigOrDie(config)
 			}
 			disco := discovery.NewDiscoveryClientForConfigOrDie(config)
 			server := server{
 				Server:  http.Server{Addr: ":2473"},
 				disco:   disco,
+				configs: configs,
 				clients: clients,
 			}
 			http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -52,9 +57,9 @@ func NewCommand() *cobra.Command {
 				fmt.Printf("%s (%d) %q %q\n", r.Method, len(parts), parts, query)
 				switch parts[1] {
 				case "api":
-					server.api(w, r, parts, disco)
+					server.api(w, r, parts)
 				case "apis":
-					server.apis(w, r, parts, disco)
+					server.apis(w, r, parts)
 				case "openapi":
 					server.openapi(w)
 				default:

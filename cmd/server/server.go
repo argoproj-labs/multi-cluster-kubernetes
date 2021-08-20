@@ -10,27 +10,33 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/portforward"
+	"k8s.io/client-go/transport/spdy"
 	"net/http"
+	"net/url"
 )
 
 var decoder = gorillaschema.NewDecoder()
 
 type server struct {
 	http.Server
+	configs map[string]*rest.Config
 	clients map[string]dynamic.Interface
-	disco   *discovery.DiscoveryClient
+	disco   discovery.DiscoveryInterface
 }
 
-func (s *server) api(w http.ResponseWriter, r *http.Request, parts []string, disco *discovery.DiscoveryClient) {
+func (s *server) api(w http.ResponseWriter, r *http.Request, parts []string) {
 	switch len(parts) {
 	case 2:
 		ok(w, metav1.APIVersions{TypeMeta: metav1.TypeMeta{Kind: "APIVersions"}, Versions: []string{}})
 	case 3:
 		groupVersion := parts[2]
-		list, err := disco.ServerResourcesForGroupVersion(groupVersion)
+		list, err := s.disco.ServerResourcesForGroupVersion(groupVersion)
 		done(w, list, err)
 	case 4:
 		version := parts[2]
@@ -92,18 +98,34 @@ func (s *server) api(w http.ResponseWriter, r *http.Request, parts []string, dis
 		default:
 			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
 		}
+	case 8:
+		version := parts[2]
+		clusterName, namespace := split(parts[4])
+		resource := parts[5]
+		name := parts[6]
+		subresource := parts[7]
+		gvr := schema.GroupVersionResource{Version: version, Resource: resource}
+		switch r.Method {
+		case "POST":
+			err := s.createSubResource(w, r, clusterName, namespace, name, subresource, gvr)
+			if err != nil {
+				nok(w, err)
+			}
+		default:
+			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
+		}
 	default:
 		nok(w, errors.NewInternalError(fmt.Errorf("unexpected number of path parts %d", len(parts))))
 	}
 }
 
-func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string, disco *discovery.DiscoveryClient) {
+func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
 	switch len(parts) {
 	case 2:
-		groups, err := disco.ServerGroups()
+		groups, err := s.disco.ServerGroups()
 		done(w, groups, err)
 	case 4:
-		groupVersion, err := disco.ServerResourcesForGroupVersion(parts[2] + "/" + parts[3])
+		groupVersion, err := s.disco.ServerResourcesForGroupVersion(parts[2] + "/" + parts[3])
 		done(w, groupVersion, err)
 	case 5:
 		group := parts[2]
@@ -346,4 +368,42 @@ func (s *server) openapi(w http.ResponseWriter) {
 		w.Header().Set("Content-Type", "application/com.github.proto-openapi.spec.v2@v1.0+protobuf")
 		_, _ = w.Write(marshal)
 	}
+}
+
+func (s *server) createSubResource(w http.ResponseWriter, r *http.Request, clusterName, namespace, name, subresource string, gvr schema.GroupVersionResource) error {
+	fmt.Printf("create %s/%s/%s/%s\n", clusterName, name, subresource, gvr.String())
+	restConfig, ok := s.configs[clusterName]
+	if !ok {
+		return errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+	}
+	transport, upgrader, err := spdy.RoundTripperFor(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create round-tripper: %w", err)
+	}
+	endpoint := fmt.Sprintf("%s/api/v1/namespaces/%s/pods/%s/portforward", restConfig.Host, namespace, name)
+	fmt.Printf("%s\n", endpoint)
+	x, err := url.Parse(endpoint)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Upgrade", "SPDY/3.1")
+	w.Header().Set("Connection", "Upgrade")
+	w.WriteHeader(http.StatusSwitchingProtocols)
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", x)
+	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
+	forwarder, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", 9090, 9090)}, stopChan, readyChan, w, w)
+	if err != nil {
+		return fmt.Errorf("failed to create new port-forward: %w", err)
+	}
+	go func() {
+		defer runtime.HandleCrash()
+		if err := forwarder.ForwardPorts(); err != nil {
+			panic(err)
+		}
+	}()
+	<-readyChan
+	<-r.Context().Done()
+	stopChan <- struct{}{}
+	forwarder.Close()
+	return r.Context().Err()
 }
