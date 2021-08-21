@@ -57,9 +57,9 @@ func NewCommand() *cobra.Command {
 				fmt.Printf("%s (%d) %q %q\n", r.Method, len(parts), parts, query)
 				switch parts[1] {
 				case "api":
-					server.api(w, r, parts)
+					server.api(w, r, parts[2:])
 				case "apis":
-					server.apis(w, r, parts)
+					server.apis(w, r, parts[2:])
 				case "openapi":
 					server.openapi(w)
 				default:

@@ -23,6 +23,10 @@ import (
 
 var decoder = gorillaschema.NewDecoder()
 
+func init() {
+	decoder.IgnoreUnknownKeys(true)
+}
+
 type server struct {
 	http.Server
 	configs map[string]*rest.Config
@@ -32,40 +36,65 @@ type server struct {
 
 func (s *server) api(w http.ResponseWriter, r *http.Request, parts []string) {
 	switch len(parts) {
-	case 2:
+	case 0:
 		ok(w, metav1.APIVersions{TypeMeta: metav1.TypeMeta{Kind: "APIVersions"}, Versions: []string{}})
-	case 3:
-		groupVersion := parts[2]
+	case 1:
+		groupVersion := parts[0]
 		list, err := s.disco.ServerResourcesForGroupVersion(groupVersion)
 		done(w, list, err)
-	case 4:
-		version := parts[2]
-		resource := parts[3]
-		gvr := schema.GroupVersionResource{Version: version, Resource: resource}
+	default:
+		s.apis(w, r, append([]string{""}, parts...))
+	}
+}
+
+func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
+	switch len(parts) {
+	case 0:
+		groups, err := s.disco.ServerGroups()
+		done(w, groups, err)
+	case 2:
+		groupVersion, err := s.disco.ServerResourcesForGroupVersion(parts[0] + "/" + parts[1])
+		done(w, groupVersion, err)
+	case 3:
+		group := parts[0]
+		version := parts[1]
+		resource := parts[2]
+		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 		switch r.Method {
 		case "GET":
 			list, err := s.clusterList(r, gvr)
 			done(w, list, err)
+		case "POST":
+			list, err := s.clusterCreate(r, gvr)
+			done(w, list, err)
 		default:
 			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
 		}
-	case 5:
-		version := parts[2]
-		resource := parts[3]
-		clusterName, name := split(parts[4])
-		gvr := schema.GroupVersionResource{Version: version, Resource: resource}
+	case 4:
+		group := parts[0]
+		version := parts[1]
+		resource := parts[2]
+		clusterName, name := split(parts[3])
+		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 		switch r.Method {
 		case "GET":
 			v, err := s.clusterGet(r, clusterName, name, gvr)
 			done(w, v, err)
+		case "PUT":
+			v, err := s.clusterUpdate(r, clusterName, name, gvr)
+			done(w, v, err)
+		case "PATCH":
+			v, err := s.clusterPatch(r, clusterName, name, gvr)
+			done(w, v, err)
 		default:
 			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
 		}
-	case 6:
-		version := parts[2]
-		clusterName, namespace := split(parts[4])
-		resource := parts[5]
-		gvr := schema.GroupVersionResource{Version: version, Resource: resource}
+	case 5:
+		group := parts[0]
+		version := parts[1]
+		clusterName, namespace := split(parts[3])
+		resource := parts[4]
+		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 		switch r.Method {
 		case "GET":
 			if r.URL.Query().Get("watch") == "true" {
@@ -79,112 +108,34 @@ func (s *server) api(w http.ResponseWriter, r *http.Request, parts []string) {
 				list, err := s.list(r, clusterName, namespace, gvr)
 				done(w, list, err)
 			}
-		default:
-			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
-		}
-	case 7:
-		version := parts[2]
-		clusterName, namespace := split(parts[4])
-		resource := parts[5]
-		name := parts[6]
-		gvr := schema.GroupVersionResource{Version: version, Resource: resource}
-		switch r.Method {
-		case "GET":
-			v, err := s.get(r, clusterName, namespace, name, gvr)
-			done(w, v, err)
-		case "PATCH":
-			v, err := s.patch(r, clusterName, namespace, name, gvr)
-			done(w, v, err)
-		default:
-			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
-		}
-	case 8:
-		version := parts[2]
-		clusterName, namespace := split(parts[4])
-		resource := parts[5]
-		name := parts[6]
-		subresource := parts[7]
-		gvr := schema.GroupVersionResource{Version: version, Resource: resource}
-		switch r.Method {
-		case "POST":
-			err := s.createSubResource(w, r, clusterName, namespace, name, subresource, gvr)
-			if err != nil {
-				nok(w, err)
-			}
-		default:
-			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
-		}
-	default:
-		nok(w, errors.NewInternalError(fmt.Errorf("unexpected number of path parts %d", len(parts))))
-	}
-}
-
-func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
-	switch len(parts) {
-	case 2:
-		groups, err := s.disco.ServerGroups()
-		done(w, groups, err)
-	case 4:
-		groupVersion, err := s.disco.ServerResourcesForGroupVersion(parts[2] + "/" + parts[3])
-		done(w, groupVersion, err)
-	case 5:
-		group := parts[2]
-		version := parts[3]
-		resource := parts[4]
-		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
-		switch r.Method {
-		case "GET":
-			list, err := s.clusterList(r, gvr)
-			done(w, list, err)
-		default:
-			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
-		}
-	case 6:
-		group := parts[2]
-		version := parts[3]
-		resource := parts[4]
-		clusterName, name := split(parts[5])
-		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
-		switch r.Method {
-		case "GET":
-			v, err := s.clusterGet(r, clusterName, name, gvr)
-			done(w, v, err)
-		case "PATCH":
-			v, err := s.clusterPatch(r, clusterName, name, gvr)
-			done(w, v, err)
-		default:
-			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
-		}
-	case 7:
-		group := parts[2]
-		version := parts[3]
-		clusterName, namespace := split(parts[5])
-		resource := parts[6]
-		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
-		switch r.Method {
-		case "GET":
-			list, err := s.list(r, clusterName, namespace, gvr)
-			done(w, list, err)
 		case "POST":
 			v, err := s.create(r, clusterName, namespace, gvr)
 			done(w, v, err)
 		default:
 			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
 		}
-	case 8:
-		group := parts[2]
-		version := parts[3]
-		clusterName, namespace := split(parts[5])
-		resource := parts[6]
-		name := parts[7]
+	case 6:
+		group := parts[0]
+		version := parts[1]
+		clusterName, namespace := split(parts[3])
+		resource := parts[4]
+		name := parts[5]
 		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 		switch r.Method {
 		case "GET":
 			v, err := s.get(r, clusterName, namespace, name, gvr)
 			done(w, v, err)
+		case "PUT":
+			v, err := s.update(r, clusterName, namespace, name, gvr)
+			done(w, v, err)
 		case "PATCH":
 			v, err := s.patch(r, clusterName, namespace, name, gvr)
 			done(w, v, err)
+		case "DELETE":
+			err := s.delete(r, clusterName, namespace, name, gvr)
+			if err != nil {
+				nok(w, err)
+			}
 		default:
 			nok(w, errors.NewMethodNotSupported(gvr.GroupResource(), r.Method))
 		}
@@ -231,6 +182,82 @@ func (s *server) clusterList(r *http.Request, gvr schema.GroupVersionResource) (
 		}
 	}
 	return clusterList, nil
+}
+
+func (s *server) clusterGet(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
+	fmt.Printf("get %s.%s/%s\n", clusterName, name, gvr.String())
+	opts := metav1.GetOptions{}
+	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
+		return nil, err
+	}
+	client, ok := s.clients[clusterName]
+	if !ok {
+		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+	}
+	v, err := client.Resource(gvr).Get(r.Context(), name, opts)
+	if err != nil {
+		return nil, err
+	}
+	setMetaData(v, clusterName, gvr.Resource)
+	return v, nil
+}
+
+func (s *server) clusterCreate(r *http.Request, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
+	fmt.Printf("cluster create %s\n", gvr.String())
+	var v *unstructured.Unstructured
+	for clusterName := range s.clients {
+		var err error
+		v, err = s.create(r, clusterName, "", gvr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return v, nil
+}
+
+func (s *server) clusterUpdate(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
+	fmt.Printf("cluster update %s/%s/%s\n", clusterName, name, gvr.String())
+	opts := metav1.UpdateOptions{}
+	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
+		return nil, err
+	}
+	obj := &unstructured.Unstructured{}
+	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
+		return nil, err
+	}
+	obj.SetName(name)
+	client, ok := s.clients[clusterName]
+	if !ok {
+		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+	}
+	v, err := client.Resource(gvr).Update(r.Context(), obj, opts)
+	if err != nil {
+		return nil, err
+	}
+	setMetaData(v, clusterName, gvr.Resource)
+	return v, nil
+}
+
+func (s *server) clusterPatch(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
+	fmt.Printf("cluster patch %s/%s/%s\n", clusterName, name, gvr.String())
+	opts := metav1.PatchOptions{}
+	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
+		return nil, err
+	}
+	client, ok := s.clients[clusterName]
+	if !ok {
+		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+	}
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	v, err := client.Resource(gvr).Patch(r.Context(), name, types.MergePatchType, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	setMetaData(v, clusterName, gvr.Resource)
+	return v, nil
 }
 
 func (s *server) list(r *http.Request, clusterName, namespace string, gvr schema.GroupVersionResource) (*unstructured.UnstructuredList, error) {
@@ -293,6 +320,30 @@ func (s *server) get(r *http.Request, clusterName, namespace, name string, gvr s
 	return v, nil
 }
 
+func (s *server) update(r *http.Request, clusterName, namespace, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
+	fmt.Printf("update %s.%s/%s/%s\n", clusterName, namespace, name, gvr.String())
+	opts := metav1.UpdateOptions{}
+	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
+		return nil, err
+	}
+	obj := &unstructured.Unstructured{}
+	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
+		return nil, err
+	}
+	obj.SetNamespace(namespace)
+	obj.SetName(name)
+	client, ok := s.clients[clusterName]
+	if !ok {
+		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+	}
+	v, err := client.Resource(gvr).Namespace(namespace).Update(r.Context(), obj, opts)
+	if err != nil {
+		return nil, err
+	}
+	setMetaData(v, clusterName, gvr.Resource)
+	return v, nil
+}
+
 func (s *server) patch(r *http.Request, clusterName, namespace, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
 	fmt.Printf("patch %s.%s/%s/%s\n", clusterName, namespace, name, gvr.String())
 	opts := metav1.PatchOptions{}
@@ -315,44 +366,17 @@ func (s *server) patch(r *http.Request, clusterName, namespace, name string, gvr
 	return v, nil
 }
 
-func (s *server) clusterGet(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("get %s.%s/%s\n", clusterName, name, gvr.String())
-	opts := metav1.GetOptions{}
+func (s *server) delete(r *http.Request, clusterName, namespace, name string, gvr schema.GroupVersionResource) error {
+	fmt.Printf("delete %s.%s/%s/%s\n", clusterName, namespace, name, gvr.String())
+	opts := metav1.DeleteOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
-		return nil, err
+		return err
 	}
 	client, ok := s.clients[clusterName]
 	if !ok {
-		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+		return errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
 	}
-	v, err := client.Resource(gvr).Get(r.Context(), name, opts)
-	if err != nil {
-		return nil, err
-	}
-	setMetaData(v, clusterName, gvr.Resource)
-	return v, nil
-}
-
-func (s *server) clusterPatch(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("patch %s/%s/%s\n", clusterName, name, gvr.String())
-	opts := metav1.PatchOptions{}
-	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
-		return nil, err
-	}
-	client, ok := s.clients[clusterName]
-	if !ok {
-		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
-	}
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	v, err := client.Resource(gvr).Patch(r.Context(), name, types.MergePatchType, data, opts)
-	if err != nil {
-		return nil, err
-	}
-	setMetaData(v, clusterName, gvr.Resource)
-	return v, nil
+	return client.Resource(gvr).Namespace(namespace).Delete(r.Context(), name, opts)
 }
 
 func (s *server) openapi(w http.ResponseWriter) {
