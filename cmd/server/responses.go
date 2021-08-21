@@ -31,6 +31,7 @@ func stream(w http.ResponseWriter, _watch watch.Interface, clusterName string) {
 	defer _watch.Stop()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	fmt.Printf("200\n")
 	successes := json.NewEncoder(w)
 	failures := json.NewEncoder(io.MultiWriter(os.Stderr, w))
 	for event := range _watch.ResultChan() {

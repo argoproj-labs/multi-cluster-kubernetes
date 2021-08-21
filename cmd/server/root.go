@@ -52,9 +52,8 @@ func NewCommand() *cobra.Command {
 				clients: clients,
 			}
 			http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				fmt.Printf("%s %s ", r.Method, r.URL)
 				parts := strings.Split(r.URL.Path, "/")
-				query := r.URL.Query()
-				fmt.Printf("%s (%d) %q %q\n", r.Method, len(parts), parts, query)
 				switch parts[1] {
 				case "api":
 					server.api(w, r, parts[2:])

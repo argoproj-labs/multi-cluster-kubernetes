@@ -145,7 +145,6 @@ func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
 }
 
 func (s *server) create(r *http.Request, clusterName, namespace string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("create %s.%s/%s\n", clusterName, namespace, gvr.String())
 	opts := metav1.CreateOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
@@ -174,7 +173,6 @@ func (s *server) create(r *http.Request, clusterName, namespace string, gvr sche
 }
 
 func (s *server) clusterList(r *http.Request, gvr schema.GroupVersionResource) (*unstructured.UnstructuredList, error) {
-	fmt.Printf("cluster list %s\n", gvr.String())
 	var clusterList *unstructured.UnstructuredList
 	for clusterName := range s.clients {
 		list, err := s.list(r, clusterName, "", gvr)
@@ -191,7 +189,6 @@ func (s *server) clusterList(r *http.Request, gvr schema.GroupVersionResource) (
 }
 
 func (s *server) clusterGet(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("get %s.%s/%s\n", clusterName, name, gvr.String())
 	opts := metav1.GetOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
@@ -209,7 +206,6 @@ func (s *server) clusterGet(r *http.Request, clusterName, name string, gvr schem
 }
 
 func (s *server) clusterCreate(r *http.Request, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("cluster create %s\n", gvr.String())
 	var v *unstructured.Unstructured
 	for clusterName := range s.clients {
 		var err error
@@ -222,7 +218,6 @@ func (s *server) clusterCreate(r *http.Request, gvr schema.GroupVersionResource)
 }
 
 func (s *server) clusterUpdate(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("cluster update %s/%s/%s\n", clusterName, name, gvr.String())
 	opts := metav1.UpdateOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
@@ -245,7 +240,6 @@ func (s *server) clusterUpdate(r *http.Request, clusterName, name string, gvr sc
 }
 
 func (s *server) clusterPatch(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("cluster patch %s/%s/%s\n", clusterName, name, gvr.String())
 	opts := metav1.PatchOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
@@ -267,7 +261,6 @@ func (s *server) clusterPatch(r *http.Request, clusterName, name string, gvr sch
 }
 
 func (s *server) list(r *http.Request, clusterName, namespace string, gvr schema.GroupVersionResource) (*unstructured.UnstructuredList, error) {
-	fmt.Printf("list %s.%s/%s\n", clusterName, namespace, gvr.String())
 	opts := metav1.ListOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
@@ -287,7 +280,6 @@ func (s *server) list(r *http.Request, clusterName, namespace string, gvr schema
 }
 
 func (s *server) watch(r *http.Request, clusterName, namespace string, gvr schema.GroupVersionResource) (watch.Interface, error) {
-	fmt.Printf("watch %s.%s/%s\n", clusterName, namespace, gvr.String())
 	opts := metav1.ListOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
@@ -300,7 +292,6 @@ func (s *server) watch(r *http.Request, clusterName, namespace string, gvr schem
 }
 
 func (s *server) get(r *http.Request, clusterName, namespace, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("get %s.%s/%s/%s\n", clusterName, namespace, name, gvr.String())
 	opts := metav1.GetOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
@@ -318,7 +309,6 @@ func (s *server) get(r *http.Request, clusterName, namespace, name string, gvr s
 }
 
 func (s *server) update(r *http.Request, clusterName, namespace, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("update %s.%s/%s/%s\n", clusterName, namespace, name, gvr.String())
 	opts := metav1.UpdateOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
@@ -342,7 +332,6 @@ func (s *server) update(r *http.Request, clusterName, namespace, name string, gv
 }
 
 func (s *server) patch(r *http.Request, clusterName, namespace, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	fmt.Printf("patch %s.%s/%s/%s\n", clusterName, namespace, name, gvr.String())
 	opts := metav1.PatchOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
@@ -364,7 +353,6 @@ func (s *server) patch(r *http.Request, clusterName, namespace, name string, gvr
 }
 
 func (s *server) delete(r *http.Request, clusterName, namespace, name string, gvr schema.GroupVersionResource) error {
-	fmt.Printf("delete %s.%s/%s/%s\n", clusterName, namespace, name, gvr.String())
 	opts := metav1.DeleteOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return err
@@ -392,7 +380,6 @@ func (s *server) openapi(w http.ResponseWriter) {
 }
 
 func (s *server) createSubResource(w http.ResponseWriter, r *http.Request, clusterName, namespace, name, subresource string, gvr schema.GroupVersionResource) error {
-	fmt.Printf("create %s/%s/%s/%s\n", clusterName, name, subresource, gvr.String())
 	restConfig, ok := s.configs[clusterName]
 	if !ok {
 		return errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
