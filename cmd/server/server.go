@@ -102,7 +102,7 @@ func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
 				if err != nil {
 					nok(w, err)
 				} else {
-					stream(w, _watch, clusterName, resource)
+					stream(w, _watch, clusterName)
 				}
 			} else {
 				list, err := s.list(r, clusterName, namespace, gvr)
@@ -155,6 +155,12 @@ func (s *server) create(r *http.Request, clusterName, namespace string, gvr sche
 		return nil, err
 	}
 	obj.SetNamespace(namespace)
+	switch gvr.Resource {
+	case "events":
+		if err := unstructured.SetNestedField(obj.Object, namespace, "involvedObject", "namespace"); err != nil {
+			return nil, err
+		}
+	}
 	client, ok := s.clients[clusterName]
 	if !ok {
 		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
@@ -163,7 +169,7 @@ func (s *server) create(r *http.Request, clusterName, namespace string, gvr sche
 	if err != nil {
 		return nil, err
 	}
-	setMetaData(v, clusterName, gvr.Resource)
+	setMetaData(v, clusterName)
 	return v, nil
 }
 
@@ -198,7 +204,7 @@ func (s *server) clusterGet(r *http.Request, clusterName, name string, gvr schem
 	if err != nil {
 		return nil, err
 	}
-	setMetaData(v, clusterName, gvr.Resource)
+	setMetaData(v, clusterName)
 	return v, nil
 }
 
@@ -234,7 +240,7 @@ func (s *server) clusterUpdate(r *http.Request, clusterName, name string, gvr sc
 	if err != nil {
 		return nil, err
 	}
-	setMetaData(v, clusterName, gvr.Resource)
+	setMetaData(v, clusterName)
 	return v, nil
 }
 
@@ -256,7 +262,7 @@ func (s *server) clusterPatch(r *http.Request, clusterName, name string, gvr sch
 	if err != nil {
 		return nil, err
 	}
-	setMetaData(v, clusterName, gvr.Resource)
+	setMetaData(v, clusterName)
 	return v, nil
 }
 
@@ -275,7 +281,7 @@ func (s *server) list(r *http.Request, clusterName, namespace string, gvr schema
 		return nil, err
 	}
 	for _, v := range list.Items {
-		setMetaData(&v, clusterName, gvr.Resource)
+		setMetaData(&v, clusterName)
 	}
 	return list, nil
 }
@@ -293,15 +299,6 @@ func (s *server) watch(r *http.Request, clusterName, namespace string, gvr schem
 	return client.Resource(gvr).Namespace(namespace).Watch(r.Context(), opts)
 }
 
-func setMetaData(v *unstructured.Unstructured, clusterName string, resource string) {
-	v.SetClusterName(clusterName)
-	if resource == "namespaces" {
-		v.SetName(join(v.GetClusterName(), v.GetName()))
-	} else if v.GetNamespace() != "" {
-		v.SetNamespace(join(v.GetClusterName(), v.GetNamespace()))
-	}
-}
-
 func (s *server) get(r *http.Request, clusterName, namespace, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
 	fmt.Printf("get %s.%s/%s/%s\n", clusterName, namespace, name, gvr.String())
 	opts := metav1.GetOptions{}
@@ -316,7 +313,7 @@ func (s *server) get(r *http.Request, clusterName, namespace, name string, gvr s
 	if err != nil {
 		return nil, err
 	}
-	setMetaData(v, clusterName, gvr.Resource)
+	setMetaData(v, clusterName)
 	return v, nil
 }
 
@@ -340,7 +337,7 @@ func (s *server) update(r *http.Request, clusterName, namespace, name string, gv
 	if err != nil {
 		return nil, err
 	}
-	setMetaData(v, clusterName, gvr.Resource)
+	setMetaData(v, clusterName)
 	return v, nil
 }
 
@@ -362,7 +359,7 @@ func (s *server) patch(r *http.Request, clusterName, namespace, name string, gvr
 	if err != nil {
 		return nil, err
 	}
-	setMetaData(v, clusterName, gvr.Resource)
+	setMetaData(v, clusterName)
 	return v, nil
 }
 

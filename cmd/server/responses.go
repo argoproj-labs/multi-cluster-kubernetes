@@ -24,22 +24,33 @@ func ok(w http.ResponseWriter, v interface{}) {
 	fmt.Printf("200\n")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-	_ = json.NewEncoder(io.MultiWriter(os.Stdout, w)).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
-func stream(w http.ResponseWriter, watch watch.Interface, clusterName, resource string) {
-	defer watch.Stop()
+func stream(w http.ResponseWriter, _watch watch.Interface, clusterName string) {
+	defer _watch.Stop()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-	encoder := json.NewEncoder(io.MultiWriter(os.Stdout, w))
-	for event := range watch.ResultChan() {
+	successes := json.NewEncoder(w)
+	failures := json.NewEncoder(io.MultiWriter(os.Stderr, w))
+	for event := range _watch.ResultChan() {
 		v, ok := event.Object.(*unstructured.Unstructured)
-		if !ok {
-			_ = encoder.Encode(errors.FromObject(event.Object))
-			return
+		if ok {
+			setMetaData(v, clusterName)
+			_ = successes.Encode(map[string]interface{}{
+				"type":   event.Type,
+				"object": v,
+			})
+		} else {
+			_ = failures.Encode(map[string]interface{}{
+				"type":   event.Type,
+				"object": event.Object,
+			})
 		}
-		setMetaData(v, clusterName, resource)
-		_ = encoder.Encode(v)
+		_, _ = w.Write([]byte("\n"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
 	}
 }
 
@@ -55,7 +66,7 @@ func nok(w http.ResponseWriter, err error) {
 		fmt.Printf("500\n")
 		w.WriteHeader(500)
 		_ = json.NewEncoder(io.MultiWriter(os.Stderr, w)).Encode(metav1.Status{
-			Status:  "Failure",
+			Status:  metav1.StatusFailure,
 			Reason:  errors.ReasonForError(err),
 			Message: err.Error(),
 		})
