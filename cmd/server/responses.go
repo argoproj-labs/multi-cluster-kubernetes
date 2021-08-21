@@ -37,15 +37,9 @@ func stream(w http.ResponseWriter, _watch watch.Interface, clusterName string) {
 		v, ok := event.Object.(*unstructured.Unstructured)
 		if ok {
 			setMetaData(v, clusterName)
-			_ = successes.Encode(map[string]interface{}{
-				"type":   event.Type,
-				"object": v,
-			})
+			_ = successes.Encode(map[string]interface{}{"type": event.Type, "object": v})
 		} else {
-			_ = failures.Encode(map[string]interface{}{
-				"type":   event.Type,
-				"object": event.Object,
-			})
+			_ = failures.Encode(map[string]interface{}{"type": event.Type, "object": event.Object})
 		}
 		_, _ = w.Write([]byte("\n"))
 		if f, ok := w.(http.Flusher); ok {
