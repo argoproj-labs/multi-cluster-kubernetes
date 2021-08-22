@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/argoproj-labs/amalgamated-kubernetes-api/clusters"
+	"github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/clusters"
+	"github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/config"
 	"k8s.io/client-go/util/homedir"
 	"log"
 	"path/filepath"
@@ -17,8 +18,10 @@ import (
 )
 
 func NewAddCommand() *cobra.Command {
-	var kubeconfig string
-	var namespace string
+	var (
+		kubeconfig string
+		namespace  string
+	)
 	cmd := &cobra.Command{
 		Use: "add CLUSTER_NAME CONTEXT_NAME",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -60,11 +63,8 @@ func NewAddCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-			if err != nil {
-				return err
-			}
-			_, err = kubernetes.NewForConfigOrDie(config).CoreV1().Secrets(namespace).
+			restConfig := config.NewRestConfigOrDie(kubeconfig, &namespace)
+			_, err = kubernetes.NewForConfigOrDie(restConfig).CoreV1().Secrets(namespace).
 				Patch(context.Background(), "clusters", types.MergePatchType, data, metav1.PatchOptions{})
 			if err != nil {
 				return err

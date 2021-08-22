@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	clusters "github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/clusters"
 	gorillaschema "github.com/gorilla/schema"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -14,17 +16,60 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 var decoder = gorillaschema.NewDecoder()
 
 func init() {
 	decoder.IgnoreUnknownKeys(true)
+}
+
+func New(config *rest.Config, namespace string) error {
+	secret, err := kubernetes.NewForConfigOrDie(config).CoreV1().Secrets(namespace).Get(context.Background(), "clusters", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	configs := make(map[string]*rest.Config)
+	clients := make(map[string]dynamic.Interface)
+	for clusterName, data := range secret.Data {
+		c := &clusters.Config{}
+		if err := json.Unmarshal(data, c); err != nil {
+			return err
+		}
+		fmt.Printf("%s -> %s\n", clusterName, c.Host)
+		config := c.RestConfig()
+		configs[clusterName] = config
+		clients[clusterName] = dynamic.NewForConfigOrDie(config)
+	}
+	server := server{
+		Server:  http.Server{Addr: ":2473"},
+		disco:   discovery.NewDiscoveryClientForConfigOrDie(config),
+		configs: configs,
+		clients: clients,
+	}
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("%s %s ", r.Method, r.URL)
+		parts := strings.Split(r.URL.Path, "/")
+		switch parts[1] {
+		case "api":
+			server.api(w, r, parts[2:])
+		case "apis":
+			server.apis(w, r, parts[2:])
+		case "openapi":
+			server.openapi(w)
+		default:
+			nok(w, fmt.Errorf("unknown %q", parts[1]))
+		}
+	})
+	fmt.Printf("starting server on %q\n", server.Addr)
+	return server.ListenAndServe()
 }
 
 type server struct {
