@@ -1,4 +1,4 @@
-# Amalgamated Kubernetes API
+# Multi-cluster Kubernetes API
 
 This is a proof-of-concept to determine if what happens when we amalgamate the APIs from multiple Kubernetes API
 servers.
