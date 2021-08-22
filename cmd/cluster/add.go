@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/clusters"
-	"github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/config"
 	"k8s.io/client-go/util/homedir"
 	"log"
 	"path/filepath"
@@ -63,7 +62,10 @@ func NewAddCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			restConfig := config.NewRestConfigOrDie(kubeconfig, &namespace)
+			restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+			if err != nil {
+				return err
+			}
 			_, err = kubernetes.NewForConfigOrDie(restConfig).CoreV1().Secrets(namespace).
 				Patch(context.Background(), "clusters", types.MergePatchType, data, metav1.PatchOptions{})
 			if err != nil {

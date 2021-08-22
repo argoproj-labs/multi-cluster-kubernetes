@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -31,17 +32,17 @@ func init() {
 	decoder.IgnoreUnknownKeys(true)
 }
 
-func New(config *rest.Config, namespace string) error {
+func New(config *rest.Config, namespace string) (func(ctx context.Context) error, error) {
 	secret, err := kubernetes.NewForConfigOrDie(config).CoreV1().Secrets(namespace).Get(context.Background(), "clusters", metav1.GetOptions{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	configs := make(map[string]*rest.Config)
 	clients := make(map[string]dynamic.Interface)
 	for clusterName, data := range secret.Data {
 		c := &clusters.Config{}
 		if err := json.Unmarshal(data, c); err != nil {
-			return err
+			return nil, err
 		}
 		fmt.Printf("%s -> %s\n", clusterName, c.Host)
 		config := c.RestConfig()
@@ -68,8 +69,18 @@ func New(config *rest.Config, namespace string) error {
 			nok(w, fmt.Errorf("unknown %q", parts[1]))
 		}
 	})
-	fmt.Printf("starting server on %q\n", server.Addr)
-	return server.ListenAndServe()
+	go func() {
+		defer runtime.HandleCrash()
+		fmt.Printf("starting server on %q\n", server.Addr)
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+	return func(ctx context.Context) error {
+		fmt.Printf("shutting down server\n")
+		return server.Shutdown(ctx)
+	}, nil
 }
 
 type server struct {
@@ -141,6 +152,11 @@ func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
 		resource := parts[4]
 		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 		switch r.Method {
+		case "DELETE":
+			err := s.deleteCollection(r, clusterName, namespace, gvr)
+			if err != nil {
+				nok(w, err)
+			}
 		case "GET":
 			if r.URL.Query().Get("watch") == "true" {
 				_watch, err := s.watch(r, clusterName, namespace, gvr)
@@ -409,6 +425,22 @@ func (s *server) delete(r *http.Request, clusterName, namespace, name string, gv
 	return client.Resource(gvr).Namespace(namespace).Delete(r.Context(), name, opts)
 }
 
+func (s *server) deleteCollection(r *http.Request, clusterName, namespace string, gvr schema.GroupVersionResource) error {
+	opts := metav1.DeleteOptions{}
+	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
+		return err
+	}
+	listOptions := metav1.ListOptions{}
+	if err := decoder.Decode(&listOptions, r.URL.Query()); err != nil {
+		return err
+	}
+	client, ok := s.clients[clusterName]
+	if !ok {
+		return errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+	}
+	return client.Resource(gvr).Namespace(namespace).DeleteCollection(r.Context(), opts, listOptions)
+}
+
 func (s *server) openapi(w http.ResponseWriter) {
 	document, err := s.disco.OpenAPISchema()
 	if err != nil {
@@ -451,7 +483,7 @@ func (s *server) createSubResource(w http.ResponseWriter, r *http.Request, clust
 	go func() {
 		defer runtime.HandleCrash()
 		if err := forwarder.ForwardPorts(); err != nil {
-			panic(err)
+			log.Fatal()
 		}
 	}()
 	<-readyChan

@@ -1,11 +1,14 @@
 package server
 
 import (
-	config "github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/config"
+	"context"
 	"github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/server"
 	"github.com/spf13/cobra"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"os"
+	"os/signal"
 	"path/filepath"
 )
 
@@ -17,8 +20,19 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			restConfig := config.NewRestConfigOrDie(kubeconfig, &namespace)
-			return server.New(restConfig, namespace)
+			ctx := context.Background()
+			restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+			if err != nil {
+				return err
+			}
+			stop := make(chan os.Signal, 1)
+			signal.Notify(stop, os.Interrupt)
+			shutdown, err := server.New(restConfig, namespace)
+			if err != nil {
+				return err
+			}
+			<-stop
+			return shutdown(ctx)
 		},
 	}
 	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "(optional) absolute path to the kubeconfig file")
