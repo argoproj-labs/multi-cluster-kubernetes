@@ -6,13 +6,13 @@ servers.
 ## Install
 
 ```
-go install github.com/argoproj-labs/multi-cluster-kubernetes-api/cmd/mck
+go install github.com/argoproj-labs/multi-cluster-kubernetes/cmd/mck
 ```
 
 Add your current `docker-desktop` as a cluster:
 
 ```
-mc cluster add default docker-desktop
+mck cluster add default docker-desktop
 ```
 
 
