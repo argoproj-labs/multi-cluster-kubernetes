@@ -24,6 +24,8 @@ import (
 	"strings"
 )
 
+const keyClusterName = "clusterName"
+
 var decoder = gorillaschema.NewDecoder()
 
 func init() {
@@ -195,7 +197,7 @@ func (s *server) create(r *http.Request, namespace string, gvr schema.GroupVersi
 	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
 		return nil, err
 	}
-	clusterName := obj.GetLabels()["clusterName"]
+	clusterName := obj.GetLabels()[keyClusterName]
 	resourceInterface, err := s.resource(clusterName, gvr, namespace)
 	if err != nil {
 		return nil, err
@@ -233,7 +235,7 @@ func (s *server) list(r *http.Request, namespace string, gvr schema.GroupVersion
 		return nil, err
 	}
 	for _, item := range list.Items {
-		item.GetLabels()["clusterName"] = clusterName
+		item.GetLabels()[keyClusterName] = clusterName
 	}
 	return list, err
 }
@@ -263,17 +265,17 @@ func (s *server) update(r *http.Request, namespace string, gvr schema.GroupVersi
 	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
 		return nil, err
 	}
-	clusterName := obj.GetLabels()["clusterName"]
+	clusterName := obj.GetLabels()[keyClusterName]
 	resourceInterface, err := s.resource(clusterName, gvr, namespace)
 	if err != nil {
 		return nil, err
 	}
-	delete(obj.GetLabels(), "clusterName")
+	delete(obj.GetLabels(), keyClusterName)
 	v, err := resourceInterface.Update(r.Context(), obj, opts)
 	if err != nil {
 		return nil, err
 	}
-	v.GetLabels()["clusterName"] = clusterName
+	v.GetLabels()[keyClusterName] = clusterName
 	return v, err
 }
 
@@ -286,12 +288,12 @@ func (s *server) patch(r *http.Request, namespace, name string, gvr schema.Group
 	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
 		return nil, err
 	}
-	clusterName := obj.GetLabels()["clusterName"]
+	clusterName := obj.GetLabels()[keyClusterName]
 	resourceInterface, err := s.resource(clusterName, gvr, namespace)
 	if err != nil {
 		return nil, err
 	}
-	delete(obj.GetLabels(), "clusterName")
+	delete(obj.GetLabels(), keyClusterName)
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
@@ -300,7 +302,7 @@ func (s *server) patch(r *http.Request, namespace, name string, gvr schema.Group
 	if err != nil {
 		return nil, err
 	}
-	v.GetLabels()["clusterName"] = clusterName
+	v.GetLabels()[keyClusterName] = clusterName
 	return v, err
 }
 
@@ -333,7 +335,7 @@ func (s *server) listOptions(r *http.Request) (metav1.ListOptions, string, error
 	newSelector := labels.NewSelector()
 	clusterName := ""
 	for _, r := range requirements {
-		if r.Key() != "clusterName" {
+		if r.Key() != keyClusterName {
 			newSelector = newSelector.Add(r)
 		} else {
 			var ok bool
