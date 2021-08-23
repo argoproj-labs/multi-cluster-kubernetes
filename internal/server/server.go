@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/argoproj-labs/multi-cluster-kubernetes-api/api"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api"
 	gorillaschema "github.com/gorilla/schema"
 	"io"
 	"k8s.io/apimachinery/pkg/api/errors"

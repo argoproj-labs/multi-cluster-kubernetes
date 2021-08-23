@@ -2,9 +2,8 @@ package server
 
 import (
 	"context"
-	"github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/server"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/internal/server"
 	"github.com/spf13/cobra"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"os"

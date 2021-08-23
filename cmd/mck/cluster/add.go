@@ -3,7 +3,7 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"github.com/argoproj-labs/multi-cluster-kubernetes-api/api"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/homedir"
 	"path/filepath"

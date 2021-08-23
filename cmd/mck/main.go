@@ -1,8 +1,8 @@
 package main
 
 import (
-	cluster "github.com/argoproj-labs/multi-cluster-kubernetes-api/cmd/mc/cluster"
-	server "github.com/argoproj-labs/multi-cluster-kubernetes-api/cmd/mc/server"
+	cluster "github.com/argoproj-labs/multi-cluster-kubernetes/cmd/mck/cluster"
+	server "github.com/argoproj-labs/multi-cluster-kubernetes/cmd/mck/server"
 	"github.com/spf13/cobra"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
