@@ -9,35 +9,33 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
-	"path/filepath"
 	"testing"
 )
 
-func TestCustomResourceDefinitions(t *testing.T) {
+func TestResource(t *testing.T) {
 	defer Setup()()
 	restConfig := RestConfig()
 	ctx := context.Background()
+
 	resourceInterface := dynamic.NewForConfigOrDie(restConfig).
-		Resource(schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "tests"}).
+		Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).
 		Namespace("default.default")
 
 	t.Run("DeleteCollection", func(t *testing.T) {
-		err := resourceInterface.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+		err := resourceInterface.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: "test"})
 		assert.NoError(t, err)
 	})
 	t.Run("Create", func(t *testing.T) {
 		obj := &unstructured.Unstructured{}
-		obj.SetKind("Test")
-		obj.SetAPIVersion("argoproj.io/v1alpha1")
+		obj.SetKind("ConfigMap")
+		obj.SetAPIVersion("v1")
 		obj.SetName("test")
+		obj.SetLabels(map[string]string{"test": "yes"})
 		_, err := resourceInterface.Create(ctx, obj, metav1.CreateOptions{})
 		assert.NoError(t, err)
 	})
 	t.Run("List", func(t *testing.T) {
-		list, err := resourceInterface.List(ctx, metav1.ListOptions{})
+		list, err := resourceInterface.List(ctx, metav1.ListOptions{LabelSelector: "test"})
 		if assert.NoError(t, err) {
 			assert.Len(t, list.Items, 1)
 		}
@@ -53,8 +51,8 @@ func TestCustomResourceDefinitions(t *testing.T) {
 	})
 	t.Run("Update", func(t *testing.T) {
 		obj := &unstructured.Unstructured{}
-		obj.SetKind("Test")
-		obj.SetAPIVersion("argoproj.io/v1alpha1")
+		obj.SetKind("ConfigMap")
+		obj.SetAPIVersion("v1")
 		obj.SetName("test")
 		obj.SetResourceVersion(resourceVersion)
 		obj.SetAnnotations(map[string]string{"updated": "yes"})
@@ -65,8 +63,8 @@ func TestCustomResourceDefinitions(t *testing.T) {
 	})
 	t.Run("Patch", func(t *testing.T) {
 		obj := &unstructured.Unstructured{}
-		obj.SetKind("Test")
-		obj.SetAPIVersion("argoproj.io/v1alpha1")
+		obj.SetKind("ConfigMap")
+		obj.SetAPIVersion("v1")
 		obj.SetName("test")
 		obj.SetAnnotations(map[string]string{"patched": "yes"})
 		data, _ := json.Marshal(obj)
@@ -77,53 +75,6 @@ func TestCustomResourceDefinitions(t *testing.T) {
 	})
 	t.Run("Delete", func(t *testing.T) {
 		err := resourceInterface.Delete(ctx, "test", metav1.DeleteOptions{})
-		assert.NoError(t, err)
-	})
-}
-
-func RestConfig() *rest.Config {
-	restConfig, err := clientcmd.BuildConfigFromFlags("", "../../KubeConfig.yaml")
-	if err != nil {
-		panic(err)
-	}
-	return restConfig
-}
-
-func Setup() func() {
-	namespace := "default"
-	restConfig, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
-	if err != nil {
-		panic(err)
-	}
-	shutdown, err := New(restConfig, namespace)
-	if err != nil {
-		panic(err)
-	}
-	return func() { _ = shutdown(context.Background()) }
-}
-
-func TestNamespaces(t *testing.T) {
-	defer Setup()()
-	restConfig := RestConfig()
-	ctx := context.Background()
-	resourceInterface := dynamic.NewForConfigOrDie(restConfig).
-		Resource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
-	t.Run("Create", func(t *testing.T) {
-		obj := &unstructured.Unstructured{}
-		obj.SetKind("Namespace")
-		obj.SetAPIVersion("v1")
-		obj.SetName("default.test")
-		_, err := resourceInterface.Create(ctx, obj, metav1.CreateOptions{})
-		assert.NoError(t, err)
-	})
-	t.Run("Get", func(t *testing.T) {
-		item, err := resourceInterface.Get(ctx, "test", metav1.GetOptions{})
-		if assert.NoError(t, err) {
-			assert.Equal(t, "default.test", item.GetName())
-		}
-	})
-	t.Run("Delete", func(t *testing.T) {
-		err := resourceInterface.Delete(ctx, "default.test", metav1.DeleteOptions{})
 		assert.NoError(t, err)
 	})
 }

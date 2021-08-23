@@ -49,13 +49,14 @@ func New(config *rest.Config, namespace string) (func(ctx context.Context) error
 		configs[clusterName] = config
 		clients[clusterName] = dynamic.NewForConfigOrDie(config)
 	}
+	mux := http.NewServeMux()
 	server := server{
-		Server:  http.Server{Addr: ":2473"},
+		Server:  http.Server{Addr: ":2473", Handler: mux},
 		disco:   discovery.NewDiscoveryClientForConfigOrDie(config),
 		configs: configs,
 		clients: clients,
 	}
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("%s %s ", r.Method, r.URL)
 		parts := strings.Split(r.URL.Path, "/")
 		switch parts[1] {
@@ -69,6 +70,7 @@ func New(config *rest.Config, namespace string) (func(ctx context.Context) error
 			nok(w, fmt.Errorf("unknown %q", parts[1]))
 		}
 	})
+
 	go func() {
 		defer runtime.HandleCrash()
 		fmt.Printf("starting server on %q\n", server.Addr)
@@ -117,6 +119,11 @@ func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
 		resource := parts[2]
 		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 		switch r.Method {
+		case "DELETE":
+			err := s.clusterDeleteCollection(r, gvr)
+			if err != nil {
+				nok(w, err)
+			}
 		case "GET":
 			list, err := s.clusterList(r, gvr)
 			done(w, list, err)
@@ -264,6 +271,16 @@ func (s *server) clusterDelete(r *http.Request, clusterName, name string, gvr sc
 		return errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
 	}
 	return client.Resource(gvr).Delete(r.Context(), name, opts)
+}
+
+func (s *server) clusterDeleteCollection(r *http.Request, gvr schema.GroupVersionResource) error {
+	for clusterName := range s.clients {
+		err := s.deleteCollection(r, clusterName, "", gvr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *server) clusterGet(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
