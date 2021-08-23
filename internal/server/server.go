@@ -133,6 +133,11 @@ func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
 		clusterName, name := split(parts[3])
 		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 		switch r.Method {
+		case "DELETE":
+			err := s.clusterDelete(r, clusterName, name, gvr)
+			if err != nil {
+				nok(w, err)
+			}
 		case "GET":
 			v, err := s.clusterGet(r, clusterName, name, gvr)
 			done(w, v, err)
@@ -249,6 +254,18 @@ func (s *server) clusterList(r *http.Request, gvr schema.GroupVersionResource) (
 	return clusterList, nil
 }
 
+func (s *server) clusterDelete(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) error {
+	opts := metav1.DeleteOptions{}
+	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
+		return err
+	}
+	client, ok := s.clients[clusterName]
+	if !ok {
+		return errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+	}
+	return client.Resource(gvr).Delete(r.Context(), name, opts)
+}
+
 func (s *server) clusterGet(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
 	opts := metav1.GetOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
@@ -267,14 +284,25 @@ func (s *server) clusterGet(r *http.Request, clusterName, name string, gvr schem
 }
 
 func (s *server) clusterCreate(r *http.Request, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
-	var v *unstructured.Unstructured
-	for clusterName := range s.clients {
-		var err error
-		v, err = s.create(r, clusterName, "", gvr)
-		if err != nil {
-			return nil, err
-		}
+	opts := metav1.CreateOptions{}
+	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
+		return nil, err
 	}
+	obj := &unstructured.Unstructured{}
+	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
+		return nil, err
+	}
+	clusterName, name := split(obj.GetName())
+	obj.SetName(name)
+	client, ok := s.clients[clusterName]
+	if !ok {
+		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+	}
+	v, err := client.Resource(gvr).Create(r.Context(), obj, opts)
+	if err != nil {
+		return nil, err
+	}
+	setMetaData(v, clusterName)
 	return v, nil
 }
 

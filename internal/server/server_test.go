@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"path/filepath"
@@ -16,21 +17,9 @@ import (
 )
 
 func TestCustomResourceDefinitions(t *testing.T) {
+	defer Setup()()
+	restConfig := RestConfig()
 	ctx := context.Background()
-	namespace := "default"
-	restConfig, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
-	if err != nil {
-		panic(err)
-	}
-	shutdown, err := New(restConfig, namespace)
-	if err != nil {
-		panic(err)
-	}
-	defer func() { _ = shutdown(ctx) }()
-	restConfig, err = clientcmd.BuildConfigFromFlags("", "../../KubeConfig.yaml")
-	if err != nil {
-		panic(err)
-	}
 	resourceInterface := dynamic.NewForConfigOrDie(restConfig).
 		Resource(schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "tests"}).
 		Namespace("default.default")
@@ -88,6 +77,53 @@ func TestCustomResourceDefinitions(t *testing.T) {
 	})
 	t.Run("Delete", func(t *testing.T) {
 		err := resourceInterface.Delete(ctx, "test", metav1.DeleteOptions{})
+		assert.NoError(t, err)
+	})
+}
+
+func RestConfig() *rest.Config {
+	restConfig, err := clientcmd.BuildConfigFromFlags("", "../../KubeConfig.yaml")
+	if err != nil {
+		panic(err)
+	}
+	return restConfig
+}
+
+func Setup() func() {
+	namespace := "default"
+	restConfig, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
+	if err != nil {
+		panic(err)
+	}
+	shutdown, err := New(restConfig, namespace)
+	if err != nil {
+		panic(err)
+	}
+	return func() { _ = shutdown(context.Background()) }
+}
+
+func TestNamespaces(t *testing.T) {
+	defer Setup()()
+	restConfig := RestConfig()
+	ctx := context.Background()
+	resourceInterface := dynamic.NewForConfigOrDie(restConfig).
+		Resource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"})
+	t.Run("Create", func(t *testing.T) {
+		obj := &unstructured.Unstructured{}
+		obj.SetKind("Namespace")
+		obj.SetAPIVersion("v1")
+		obj.SetName("default.test")
+		_, err := resourceInterface.Create(ctx, obj, metav1.CreateOptions{})
+		assert.NoError(t, err)
+	})
+	t.Run("Get", func(t *testing.T) {
+		item, err := resourceInterface.Get(ctx, "test", metav1.GetOptions{})
+		if assert.NoError(t, err) {
+			assert.Equal(t, "default.test", item.GetName())
+		}
+	})
+	t.Run("Delete", func(t *testing.T) {
+		err := resourceInterface.Delete(ctx, "default.test", metav1.DeleteOptions{})
 		assert.NoError(t, err)
 	})
 }
