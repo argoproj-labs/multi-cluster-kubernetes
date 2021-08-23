@@ -19,34 +19,28 @@ func TestResource(t *testing.T) {
 
 	resourceInterface := dynamic.NewForConfigOrDie(restConfig).
 		Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).
-		Namespace("default.default")
+		Namespace("default")
 
 	t.Run("DeleteCollection", func(t *testing.T) {
-		err := resourceInterface.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: "test"})
+		err := resourceInterface.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: "clusterName=default,test"})
 		assert.NoError(t, err)
 	})
+	var resourceVersion string
 	t.Run("Create", func(t *testing.T) {
 		obj := &unstructured.Unstructured{}
 		obj.SetKind("ConfigMap")
 		obj.SetAPIVersion("v1")
 		obj.SetName("test")
-		obj.SetLabels(map[string]string{"test": "yes"})
-		_, err := resourceInterface.Create(ctx, obj, metav1.CreateOptions{})
-		assert.NoError(t, err)
-	})
-	t.Run("List", func(t *testing.T) {
-		list, err := resourceInterface.List(ctx, metav1.ListOptions{LabelSelector: "test"})
+		obj.SetLabels(map[string]string{"test": "yes", "clusterName": "default"})
+		created, err := resourceInterface.Create(ctx, obj, metav1.CreateOptions{})
 		if assert.NoError(t, err) {
-			assert.Len(t, list.Items, 1)
+			resourceVersion = created.GetResourceVersion()
 		}
 	})
-	var resourceVersion string
-	t.Run("Get", func(t *testing.T) {
-		item, err := resourceInterface.Get(ctx, "test", metav1.GetOptions{})
+	t.Run("List", func(t *testing.T) {
+		list, err := resourceInterface.List(ctx, metav1.ListOptions{LabelSelector: "clusterName=default,test"})
 		if assert.NoError(t, err) {
-			assert.Equal(t, "test", item.GetName())
-			assert.Equal(t, "default.default", item.GetNamespace())
-			resourceVersion = item.GetResourceVersion()
+			assert.Len(t, list.Items, 1)
 		}
 	})
 	t.Run("Update", func(t *testing.T) {
@@ -56,6 +50,7 @@ func TestResource(t *testing.T) {
 		obj.SetName("test")
 		obj.SetResourceVersion(resourceVersion)
 		obj.SetAnnotations(map[string]string{"updated": "yes"})
+		obj.SetLabels(map[string]string{"clusterName": "default", "test": "yes"})
 		updated, err := resourceInterface.Update(ctx, obj, metav1.UpdateOptions{})
 		if assert.NoError(t, err) {
 			assert.Len(t, updated.GetAnnotations(), 1)
@@ -67,14 +62,11 @@ func TestResource(t *testing.T) {
 		obj.SetAPIVersion("v1")
 		obj.SetName("test")
 		obj.SetAnnotations(map[string]string{"patched": "yes"})
+		obj.SetLabels(map[string]string{"clusterName": "default"})
 		data, _ := json.Marshal(obj)
 		updated, err := resourceInterface.Patch(ctx, "test", types.MergePatchType, data, metav1.PatchOptions{})
 		if assert.NoError(t, err) {
 			assert.Len(t, updated.GetAnnotations(), 2)
 		}
-	})
-	t.Run("Delete", func(t *testing.T) {
-		err := resourceInterface.Delete(ctx, "test", metav1.DeleteOptions{})
-		assert.NoError(t, err)
 	})
 }
