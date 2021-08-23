@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/clusters"
+	"github.com/argoproj-labs/multi-cluster-kubernetes-api/api"
 	"k8s.io/client-go/util/homedir"
 	"log"
 	"path/filepath"
@@ -27,6 +27,7 @@ func NewAddCommand() *cobra.Command {
 			if len(args) != 2 {
 				return fmt.Errorf("expected 2 args")
 			}
+			ctx := context.Background()
 			cluster := args[0]
 			contextName := args[1]
 			startingConfig, err := clientcmd.NewDefaultPathOptions().GetStartingConfig()
@@ -42,19 +43,7 @@ func NewAddCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, err := json.Marshal(&clusters.Config{
-				Host:               c.Host,
-				APIPath:            c.APIPath,
-				Username:           user.Username,
-				Password:           user.Password,
-				BearerToken:        user.Token,
-				TLSClientConfig:    c.TLSClientConfig,
-				UserAgent:          c.UserAgent,
-				DisableCompression: c.DisableCompression,
-				QPS:                c.QPS,
-				Burst:              c.Burst,
-				Timeout:            c.Timeout,
-			})
+			data, err := json.Marshal(api.NewConfig(*c, *user))
 			if err != nil {
 				return err
 			}
@@ -67,7 +56,7 @@ func NewAddCommand() *cobra.Command {
 				return err
 			}
 			_, err = kubernetes.NewForConfigOrDie(restConfig).CoreV1().Secrets(namespace).
-				Patch(context.Background(), "clusters", types.MergePatchType, data, metav1.PatchOptions{})
+				Patch(ctx, "clusters", types.MergePatchType, data, metav1.PatchOptions{})
 			if err != nil {
 				return err
 			}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/argoproj-labs/multi-cluster-kubernetes-api/internal/clusters"
+	"github.com/argoproj-labs/multi-cluster-kubernetes-api/api"
 	gorillaschema "github.com/gorilla/schema"
 	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -40,7 +40,7 @@ func New(config *rest.Config, namespace string) (func(ctx context.Context) error
 	configs := make(map[string]*rest.Config)
 	clients := make(map[string]dynamic.Interface)
 	for clusterName, data := range secret.Data {
-		c := &clusters.Config{}
+		c := &api.Config{}
 		if err := json.Unmarshal(data, c); err != nil {
 			return nil, err
 		}
