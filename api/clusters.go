@@ -50,11 +50,11 @@ func LoadClusters(ctx context.Context, secretsInterface typedcorev1.SecretInterf
 		return nil, err
 	}
 	for _, secret := range list.Items {
-		c := &Config{}
+		c := &config{}
 		if err := json.Unmarshal(secret.Data[KeyRestConfig], c); err != nil {
 			return nil, err
 		}
-		configs[secret.Labels[KeyClusterName]] = c.RestConfig()
+		configs[secret.Labels[KeyClusterName]] = c.restConfig()
 	}
 	return configs, nil
 }

@@ -7,8 +7,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func NewConfig(c rest.Config, authInfo api.AuthInfo) Config {
-	return Config{
+func NewConfig(c rest.Config, authInfo api.AuthInfo) config {
+	return config{
 		Host:               c.Host,
 		APIPath:            c.APIPath,
 		Username:           authInfo.Username,
@@ -23,7 +23,7 @@ func NewConfig(c rest.Config, authInfo api.AuthInfo) Config {
 	}
 }
 
-type Config struct {
+type config struct {
 	Host               string                   `json:"host,omitempty"`
 	APIPath            string                   `json:"apiPath,omitempty"`
 	Username           string                   `json:"username,omitempty"`
@@ -52,7 +52,7 @@ type TLSClientConfig struct {
 	NextProtos []string `json:"nextProtos,omitempty"`
 }
 
-func (c Config) RestConfig() *rest.Config {
+func (c config) restConfig() *rest.Config {
 	return &rest.Config{
 		Host:               c.Host,
 		APIPath:            c.APIPath,
