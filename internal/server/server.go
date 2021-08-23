@@ -33,20 +33,15 @@ func init() {
 }
 
 func New(config *rest.Config, namespace string) (func(ctx context.Context) error, error) {
-	secret, err := kubernetes.NewForConfigOrDie(config).CoreV1().Secrets(namespace).Get(context.Background(), "clusters", metav1.GetOptions{})
+	ctx := context.Background()
+	secretInterface := kubernetes.NewForConfigOrDie(config).CoreV1().Secrets(namespace)
+	configs, err := api.LoadClusters(ctx, secretInterface)
 	if err != nil {
 		return nil, err
 	}
-	configs := make(map[string]*rest.Config)
 	clients := make(map[string]dynamic.Interface)
-	for clusterName, data := range secret.Data {
-		c := &api.Config{}
-		if err := json.Unmarshal(data, c); err != nil {
-			return nil, err
-		}
+	for clusterName, c := range configs {
 		fmt.Printf("%s -> %s\n", clusterName, c.Host)
-		config := c.RestConfig()
-		configs[clusterName] = config
 		clients[clusterName] = dynamic.NewForConfigOrDie(config)
 	}
 	mux := http.NewServeMux()

@@ -7,13 +7,13 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func NewConfig(c rest.Config, user api.AuthInfo) Config {
+func NewConfig(c rest.Config, authInfo api.AuthInfo) Config {
 	return Config{
 		Host:               c.Host,
 		APIPath:            c.APIPath,
-		Username:           user.Username,
-		Password:           user.Password,
-		BearerToken:        user.Token,
+		Username:           authInfo.Username,
+		Password:           authInfo.Password,
+		BearerToken:        authInfo.Token,
 		TLSClientConfig:    TLSClientConfig(c.TLSClientConfig),
 		UserAgent:          c.UserAgent,
 		DisableCompression: c.DisableCompression,
@@ -24,17 +24,20 @@ func NewConfig(c rest.Config, user api.AuthInfo) Config {
 }
 
 type Config struct {
-	Host               string          `json:"host,omitempty"`
-	APIPath            string          `json:"apiPath,omitempty"`
-	Username           string          `json:"username,omitempty"`
-	Password           string          `json:"password,omitempty"`
-	BearerToken        string          `json:"bearerToken,omitempty"`
-	TLSClientConfig    TLSClientConfig `json:"tlsClient_config"`
-	UserAgent          string          `json:"userAgent,omitempty"`
-	DisableCompression bool            `json:"disableCompression,omitempty"`
-	QPS                float32         `json:"qps,omitempty"`
-	Burst              int             `json:"burst,omitempty"`
-	Timeout            time.Duration   `json:"timeout,omitempty"`
+	Host               string                   `json:"host,omitempty"`
+	APIPath            string                   `json:"apiPath,omitempty"`
+	Username           string                   `json:"username,omitempty"`
+	Password           string                   `json:"password,omitempty"`
+	BearerToken        string                   `json:"bearerToken,omitempty"`
+	TLSClientConfig    TLSClientConfig          `json:"tlsClient_config"`
+	UserAgent          string                   `json:"userAgent,omitempty"`
+	DisableCompression bool                     `json:"disableCompression,omitempty"`
+	QPS                float32                  `json:"qps,omitempty"`
+	Burst              int                      `json:"burst,omitempty"`
+	Timeout            time.Duration            `json:"timeout,omitempty"`
+	ExecProvider       *api.ExecConfig          `json:"execProvider,omitempty"`
+	AuthProvider       *api.AuthProviderConfig  `json:"authProvider,omitempty"`
+	Impersonate        rest.ImpersonationConfig `json:"impersonate,omitempty"`
 }
 
 type TLSClientConfig struct {
@@ -56,6 +59,9 @@ func (c Config) RestConfig() *rest.Config {
 		Username:           c.Username,
 		Password:           c.Password,
 		BearerToken:        c.BearerToken,
+		Impersonate:        c.Impersonate,
+		AuthProvider:       c.AuthProvider,
+		ExecProvider:       c.ExecProvider,
 		TLSClientConfig:    rest.TLSClientConfig(c.TLSClientConfig),
 		UserAgent:          c.UserAgent,
 		DisableCompression: c.DisableCompression,
