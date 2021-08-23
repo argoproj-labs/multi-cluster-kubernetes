@@ -19,11 +19,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/portforward"
-	"k8s.io/client-go/transport/spdy"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -155,11 +152,11 @@ func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
 			status(w)(s.deleteCollection(r, namespace, gvr))
 		case "GET":
 			if r.URL.Query().Get("watch") == "true" {
-				_watch, err := s.watch(r, namespace, gvr)
+				clusterName, _watch, err := s.watch(r, namespace, gvr)
 				if err != nil {
 					status(w)(err)
 				} else {
-					stream(w)(_watch)
+					stream(w)(clusterName, _watch)
 				}
 			} else {
 				status2(w)(s.list(r, namespace, gvr))
@@ -231,19 +228,30 @@ func (s *server) list(r *http.Request, namespace string, gvr schema.GroupVersion
 	if err != nil {
 		return nil, err
 	}
-	return resourceInterface.List(r.Context(), opts)
-}
-
-func (s *server) watch(r *http.Request, namespace string, gvr schema.GroupVersionResource) (watch.Interface, error) {
-	opts, clusterName, err := s.listOptions(r)
+	list, err := resourceInterface.List(r.Context(), opts)
 	if err != nil {
 		return nil, err
+	}
+	for _, item := range list.Items {
+		item.GetLabels()["clusterName"] = clusterName
+	}
+	return list, err
+}
+
+func (s *server) watch(r *http.Request, namespace string, gvr schema.GroupVersionResource) (string, watch.Interface, error) {
+	opts, clusterName, err := s.listOptions(r)
+	if err != nil {
+		return "", nil, err
 	}
 	resourceInterface, err := s.resource(clusterName, gvr, namespace)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	return resourceInterface.Watch(r.Context(), opts)
+	w, err := resourceInterface.Watch(r.Context(), opts)
+	if err != nil {
+		return "", nil, err
+	}
+	return clusterName, w, nil
 }
 
 func (s *server) update(r *http.Request, namespace string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
@@ -260,7 +268,13 @@ func (s *server) update(r *http.Request, namespace string, gvr schema.GroupVersi
 	if err != nil {
 		return nil, err
 	}
-	return resourceInterface.Update(r.Context(), obj, opts)
+	delete(obj.GetLabels(), "clusterName")
+	v, err := resourceInterface.Update(r.Context(), obj, opts)
+	if err != nil {
+		return nil, err
+	}
+	v.GetLabels()["clusterName"] = clusterName
+	return v, err
 }
 
 func (s *server) patch(r *http.Request, namespace, name string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
@@ -282,7 +296,12 @@ func (s *server) patch(r *http.Request, namespace, name string, gvr schema.Group
 	if err != nil {
 		return nil, err
 	}
-	return resourceInterface.Patch(r.Context(), name, types.MergePatchType, data, opts)
+	v, err := resourceInterface.Patch(r.Context(), name, types.MergePatchType, data, opts)
+	if err != nil {
+		return nil, err
+	}
+	v.GetLabels()["clusterName"] = clusterName
+	return v, err
 }
 
 func (s *server) deleteCollection(r *http.Request, namespace string, gvr schema.GroupVersionResource) error {
@@ -341,41 +360,4 @@ func (s *server) openapi(w http.ResponseWriter) {
 		w.Header().Set("Content-Type", "application/com.github.proto-openapi.spec.v2@v1.0+protobuf")
 		_, _ = w.Write(marshal)
 	}
-}
-
-func (s *server) createSubResource(w http.ResponseWriter, r *http.Request, clusterName, namespace, name, subresource string, gvr schema.GroupVersionResource) error {
-	restConfig, ok := s.configs[clusterName]
-	if !ok {
-		return errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
-	}
-	transport, upgrader, err := spdy.RoundTripperFor(restConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create round-tripper: %w", err)
-	}
-	endpoint := fmt.Sprintf("%s/api/v1/namespaces/%s/pods/%s/portforward", restConfig.Host, namespace, name)
-	fmt.Printf("%s\n", endpoint)
-	x, err := url.Parse(endpoint)
-	if err != nil {
-		return err
-	}
-	w.Header().Set("Upgrade", "SPDY/3.1")
-	w.Header().Set("Connection", "Upgrade")
-	w.WriteHeader(http.StatusSwitchingProtocols)
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", x)
-	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
-	forwarder, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", 9090, 9090)}, stopChan, readyChan, w, w)
-	if err != nil {
-		return fmt.Errorf("failed to create new port-forward: %w", err)
-	}
-	go func() {
-		defer runtime.HandleCrash()
-		if err := forwarder.ForwardPorts(); err != nil {
-			log.Fatal()
-		}
-	}()
-	<-readyChan
-	<-r.Context().Done()
-	stopChan <- struct{}{}
-	forwarder.Close()
-	return r.Context().Err()
 }
