@@ -23,6 +23,7 @@ func AddCluster(ctx context.Context, clusterName string, config rest.Config, aut
 			Name: fmt.Sprintf("cluster-%s", clusterName),
 			Labels: map[string]string{
 				KeyClusterName: clusterName,
+				KeyManagedBy:   "multi-cluster.argoproj.io",
 			},
 		},
 		Data: map[string][]byte{
