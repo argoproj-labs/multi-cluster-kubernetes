@@ -125,7 +125,7 @@ func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
 				nok(w, err)
 			}
 		case "GET":
-			list, err := s.clusterList(r, gvr)
+			list, err := s.list(r, "", "", gvr)
 			done(w, list, err)
 		case "POST":
 			list, err := s.clusterCreate(r, gvr)
@@ -245,22 +245,6 @@ func (s *server) create(r *http.Request, clusterName, namespace string, gvr sche
 	return v, nil
 }
 
-func (s *server) clusterList(r *http.Request, gvr schema.GroupVersionResource) (*unstructured.UnstructuredList, error) {
-	var clusterList *unstructured.UnstructuredList
-	for clusterName := range s.clients {
-		list, err := s.list(r, clusterName, "", gvr)
-		if err != nil {
-			return nil, err
-		}
-		if clusterList == nil {
-			clusterList = list
-		} else {
-			clusterList.Items = append(clusterList.Items, list.Items...)
-		}
-	}
-	return clusterList, nil
-}
-
 func (s *server) clusterDelete(r *http.Request, clusterName, name string, gvr schema.GroupVersionResource) error {
 	opts := metav1.DeleteOptions{}
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
@@ -371,18 +355,28 @@ func (s *server) list(r *http.Request, clusterName, namespace string, gvr schema
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return nil, err
 	}
-	client, ok := s.clients[clusterName]
-	if !ok {
+	var acc *unstructured.UnstructuredList
+	for clusterName1, client := range s.clients {
+		if clusterName != "" && clusterName != clusterName1 {
+			continue
+		}
+		list, err := client.Resource(gvr).Namespace(namespace).List(r.Context(), opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range list.Items {
+			setMetaData(&v, clusterName1)
+		}
+		if acc == nil {
+			acc = list
+		} else {
+			acc.Items = append(acc.Items, list.Items...)
+		}
+	}
+	if acc == nil {
 		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
 	}
-	list, err := client.Resource(gvr).Namespace(namespace).List(r.Context(), opts)
-	if err != nil {
-		return nil, err
-	}
-	for _, v := range list.Items {
-		setMetaData(&v, clusterName)
-	}
-	return list, nil
+	return acc, nil
 }
 
 func (s *server) watch(r *http.Request, clusterName, namespace string, gvr schema.GroupVersionResource) (watch.Interface, error) {

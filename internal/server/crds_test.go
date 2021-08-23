@@ -73,5 +73,4 @@ spec:
 		err := resourceInterface.Delete(ctx, "tests.argoproj.io", metav1.DeleteOptions{})
 		assert.NoError(t, err)
 	})
-
 }
