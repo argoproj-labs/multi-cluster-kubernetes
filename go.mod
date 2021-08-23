@@ -1,4 +1,4 @@
-module github.com/argoproj-labs/multi-cluster-kubernetes-api
+module github.com/argoproj-labs/multi-cluster
 
 go 1.16
 

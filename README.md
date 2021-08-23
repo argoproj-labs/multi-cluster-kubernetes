@@ -1,8 +1,18 @@
-# Multi-Cluster Kubernetes API
+# Multi-Cluster
 
 This is a proof-of-concept to determine if what happens when we amalgamate the APIs from multiple Kubernetes API
 servers.
 
-* The API exposes some special content types, but we may not need to understand them (
-  e.g. `Accept: application/json;as=Table;v=v1;g=meta.k8s.io,application/json;as=Table;v=v1beta1;g=meta.k8s.io,application/json`)
-  because it seems to be fine with JSON.
+## Install
+
+```
+go install github.com/argoproj-labs/multi-cluster-kubernetes-api/cmd/mc
+```
+
+Add your current `docker-desktop` as a cluster:
+
+```
+mc cluster add default docker-desktop
+```
+
+
