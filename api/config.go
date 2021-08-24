@@ -7,7 +7,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func NewConfig(c rest.Config, authInfo api.AuthInfo) config {
+func newConfig(c rest.Config, authInfo api.AuthInfo) config {
 	return config{
 		Host:               c.Host,
 		APIPath:            c.APIPath,

@@ -16,6 +16,7 @@ func NewAddCommand() *cobra.Command {
 	var (
 		kubeconfig string
 		namespace  string
+		host       string
 	)
 	cmd := &cobra.Command{
 		Use: "add [CLUSTER_NAME [CONTEXT_NAME]]",
@@ -56,7 +57,7 @@ func NewAddCommand() *cobra.Command {
 				return err
 			}
 			client := kubernetes.NewForConfigOrDie(restConfig)
-			if err := api.AddCluster(ctx, clusterName, *c, *user, client.CoreV1().Secrets(namespace)); err != nil {
+			if err := api.AddCluster(ctx, clusterName, *c, *user, client.CoreV1().Secrets(namespace), api.WithHost(host)); err != nil {
 				return err
 			}
 			fmt.Printf("cluster %q added\n", clusterName)
@@ -65,5 +66,6 @@ func NewAddCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "(optional) absolute path to the kubeconfig file")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "namespace")
+	cmd.Flags().StringVarP(&host, "host", "n", "", "(optional) the host, e.g. https://kubernetes.default.svc")
 	return cmd
 }

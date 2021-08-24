@@ -13,8 +13,22 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-func AddCluster(ctx context.Context, clusterName string, config rest.Config, authInfo api.AuthInfo, secretsInterface typedcorev1.SecretInterface) error {
-	data, err := json.Marshal(NewConfig(config, authInfo))
+type AddOption func(config)
+
+func WithHost(host string) func(c config) {
+	return func(c config) {
+		if host != "" {
+			c.Host = host
+		}
+	}
+}
+
+func AddCluster(ctx context.Context, clusterName string, config rest.Config, authInfo api.AuthInfo, secretsInterface typedcorev1.SecretInterface, opts ...AddOption) error {
+	c := newConfig(config, authInfo)
+	for _, opt := range opts {
+		opt(c)
+	}
+	data, err := json.Marshal(c)
 	if err != nil {
 		return err
 	}
