@@ -12,13 +12,14 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func NewAddCommand() *cobra.Command {
+func NewRemoveCommand() *cobra.Command {
 	var (
 		kubeconfig string
 		namespace  string
 	)
 	cmd := &cobra.Command{
-		Use: "add [CLUSTER_NAME [CONTEXT_NAME]]",
+		Use:     "rm [CLUSTER_NAME]",
+		Aliases: []string{"rm"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 
@@ -28,38 +29,26 @@ func NewAddCommand() *cobra.Command {
 			}
 
 			clusterName := startingConfig.CurrentContext
-			contextName := startingConfig.CurrentContext
 			switch len(args) {
 			case 0:
 			case 1:
 				clusterName = args[0]
-			case 2:
-				clusterName = args[0]
-				contextName = args[1]
 			default:
-				return fmt.Errorf("expected 0, 1 or 2 args")
+				return fmt.Errorf("expected 0 or 1 args")
 			}
-			kubeContext, ok := startingConfig.Contexts[contextName]
-			if !ok {
-				return fmt.Errorf("context named \"%s\" not found, you can list contexts with: `kubectl config get-contexts`", contextName)
+			if c, ok := startingConfig.Contexts[startingConfig.CurrentContext]; ok && namespace == "" {
+				namespace = c.Namespace
 			}
-			user := startingConfig.AuthInfos[kubeContext.AuthInfo]
-			if namespace == "" {
-				namespace = kubeContext.Namespace
-			}
-			c, err := clientcmd.NewDefaultClientConfig(*startingConfig, &clientcmd.ConfigOverrides{Context: *kubeContext}).ClientConfig()
-			if err != nil {
-				return err
-			}
+
 			restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 			if err != nil {
 				return err
 			}
 			client := kubernetes.NewForConfigOrDie(restConfig)
-			if err := api.AddCluster(ctx, clusterName, *c, *user, client.CoreV1().Secrets(namespace)); err != nil {
+			if err := api.RemoveCluster(ctx, clusterName, client.CoreV1().Secrets(namespace)); err != nil {
 				return err
 			}
-			fmt.Printf("cluster %q added\n", clusterName)
+			fmt.Printf("cluster %q removed\n", clusterName)
 			return nil
 		},
 	}

@@ -42,6 +42,15 @@ func AddCluster(ctx context.Context, clusterName string, config rest.Config, aut
 	}
 }
 
+func RemoveCluster(ctx context.Context, clusterName string, secretsInterface typedcorev1.SecretInterface) error {
+	err := secretsInterface.Delete(ctx, name(clusterName), metav1.DeleteOptions{})
+	if errors.IsNotFound(err) {
+		return nil
+	} else {
+		return err
+	}
+}
+
 func name(clusterName string) string {
 	return fmt.Sprintf("cluster-%s", clusterName)
 }

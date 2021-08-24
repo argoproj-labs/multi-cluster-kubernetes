@@ -12,5 +12,6 @@ func NewCommand() *cobra.Command {
 		},
 	}
 	command.AddCommand(NewAddCommand())
+	command.AddCommand(NewRemoveCommand())
 	return command
 }

@@ -1,6 +1,7 @@
 install:
-	go run ./cmd/mck -n default cluster add default docker-desktop
+	go run ./cmd/mck cluster rm garbage
+	go run ./cmd/mck cluster add
 start:
-	go run ./cmd/mck -n default server
+	go run ./cmd/mck server
 test: install
 	go test ./...
