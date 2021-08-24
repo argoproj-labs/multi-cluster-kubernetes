@@ -66,6 +66,6 @@ func NewAddCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "(optional) absolute path to the kubeconfig file")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "namespace")
-	cmd.Flags().StringVarP(&host, "host", "n", "", "(optional) the host, e.g. https://kubernetes.default.svc")
+	cmd.Flags().StringVar(&host, "host", "", "(optional) the host, e.g. https://kubernetes.default.svc")
 	return cmd
 }
