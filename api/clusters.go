@@ -20,10 +20,9 @@ func AddCluster(ctx context.Context, clusterName string, config rest.Config, aut
 	}
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("cluster-%s", clusterName),
+			Name: name(clusterName),
 			Labels: map[string]string{
 				KeyClusterName: clusterName,
-				KeyManagedBy:   "multi-cluster.argoproj.io",
 			},
 		},
 		Data: map[string][]byte{
@@ -43,8 +42,14 @@ func AddCluster(ctx context.Context, clusterName string, config rest.Config, aut
 	}
 }
 
-func LoadClusters(ctx context.Context, secretsInterface typedcorev1.SecretInterface) (map[string]*rest.Config, error) {
-	configs := make(map[string]*rest.Config)
+func name(clusterName string) string {
+	return fmt.Sprintf("cluster-%s", clusterName)
+}
+
+type RestConfigs map[string]*rest.Config
+
+func LoadClusters(ctx context.Context, secretsInterface typedcorev1.SecretInterface) (RestConfigs, error) {
+	configs := make(RestConfigs)
 	list, err := secretsInterface.List(ctx, metav1.ListOptions{LabelSelector: KeyClusterName})
 	if err != nil {
 		return nil, err
@@ -57,4 +62,16 @@ func LoadClusters(ctx context.Context, secretsInterface typedcorev1.SecretInterf
 		configs[secret.Labels[KeyClusterName]] = c.restConfig()
 	}
 	return configs, nil
+}
+
+func LoadCluster(ctx context.Context, secretsInterface typedcorev1.SecretInterface, clusterName string) (*rest.Config, error) {
+	secret, err := secretsInterface.Get(ctx, name(clusterName), metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	c := &config{}
+	if err := json.Unmarshal(secret.Data[KeyRestConfig], c); err != nil {
+		return nil, err
+	}
+	return c.restConfig(), nil
 }

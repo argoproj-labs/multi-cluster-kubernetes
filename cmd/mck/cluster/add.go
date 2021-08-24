@@ -43,7 +43,8 @@ func NewAddCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := api.AddCluster(ctx, cluster, *c, *user, kubernetes.NewForConfigOrDie(restConfig).CoreV1().Secrets(namespace)); err != nil {
+			client := kubernetes.NewForConfigOrDie(restConfig)
+			if err := api.AddCluster(ctx, cluster, *c, *user, client.CoreV1().Secrets(namespace)); err != nil {
 				return err
 			}
 			fmt.Printf("added cluster %q from context %q\n", cluster, contextName)
