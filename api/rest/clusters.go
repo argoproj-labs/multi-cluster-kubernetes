@@ -14,7 +14,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-const InClusterName = ""
+// InClusterName is a reserved name for the in-cluster configuration.
+// This is intentionally an invalid DNS name, as this cannot be the same name as one from a secret (which must be a valid DNS name)
+const InClusterName = "#in-cluster"
 
 type ConfigOpt func(config)
 

@@ -1,32 +1,48 @@
 package cache
 
-import "k8s.io/client-go/tools/cache"
+import (
+	mcrest "github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
+	"k8s.io/client-go/tools/cache"
+	"time"
+)
 
-type SharedIndexInformers map[string]cache.SharedIndexInformer
-
-func NewSharedIndexInformers() SharedIndexInformers {
-	return make(SharedIndexInformers)
+type SharedIndexInformer interface {
+	cache.SharedIndexInformer
+	cache.Store
+	cache.Indexer
+	Cluster(name string) cache.SharedIndexInformer
+	InCluster() cache.SharedIndexInformer
 }
 
-func (i SharedIndexInformers) Cluster(clusterName string) cache.SharedIndexInformer {
+type impl map[string]cache.SharedIndexInformer
+
+func NewSharedIndexInformers(informers map[string]cache.SharedIndexInformer) SharedIndexInformer {
+	return impl(informers)
+}
+
+func (i impl) Cluster(clusterName string) cache.SharedIndexInformer {
 	return i[clusterName]
 }
 
-func (i SharedIndexInformers) GetStore() cache.Store {
+func (i impl) InCluster() cache.SharedIndexInformer {
+	return i.Cluster(mcrest.InClusterName)
+}
+
+func (i impl) GetStore() cache.Store {
 	return i
 }
 
-func (i SharedIndexInformers) GetIndexer() cache.Indexer {
+func (i impl) GetIndexer() cache.Indexer {
 	return i
 }
 
-func (i SharedIndexInformers) Run(done <-chan struct{}) {
+func (i impl) Run(done <-chan struct{}) {
 	for _, j := range i {
 		go j.Run(done)
 	}
 }
 
-func (i SharedIndexInformers) HasSynced() bool {
+func (i impl) HasSynced() bool {
 	for _, j := range i {
 		if !j.HasSynced() {
 			return false
@@ -35,7 +51,7 @@ func (i SharedIndexInformers) HasSynced() bool {
 	return true
 }
 
-func (i SharedIndexInformers) IndexKeys(indexedName string, indexedValue string) ([]string, error) {
+func (i impl) IndexKeys(indexedName string, indexedValue string) ([]string, error) {
 	var keys []string
 	for _, j := range i {
 		v, err := j.GetIndexer().IndexKeys(indexedName, indexedValue)
@@ -47,7 +63,7 @@ func (i SharedIndexInformers) IndexKeys(indexedName string, indexedValue string)
 	return keys, nil
 }
 
-func (i SharedIndexInformers) ByIndex(indexName string, indexedValue string) ([]interface{}, error) {
+func (i impl) ByIndex(indexName string, indexedValue string) ([]interface{}, error) {
 	var byIndex []interface{}
 	for _, j := range i {
 		v, err := j.GetIndexer().ByIndex(indexName, indexedValue)
@@ -60,47 +76,47 @@ func (i SharedIndexInformers) ByIndex(indexName string, indexedValue string) ([]
 	return byIndex, nil
 }
 
-func (i SharedIndexInformers) Index(indexName string, obj interface{}) ([]interface{}, error) {
+func (i impl) Index(indexName string, obj interface{}) ([]interface{}, error) {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) ListIndexFuncValues(indexName string) []string {
+func (i impl) ListIndexFuncValues(indexName string) []string {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) GetIndexers() cache.Indexers {
+func (i impl) GetIndexers() cache.Indexers {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) AddIndexers(newIndexers cache.Indexers) error {
+func (i impl) AddIndexers(newIndexers cache.Indexers) error {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) Add(obj interface{}) error {
+func (i impl) Add(obj interface{}) error {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) Update(obj interface{}) error {
+func (i impl) Update(obj interface{}) error {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) Delete(obj interface{}) error {
+func (i impl) Delete(obj interface{}) error {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) List() []interface{} {
+func (i impl) List() []interface{} {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) ListKeys() []string {
+func (i impl) ListKeys() []string {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) Get(obj interface{}) (item interface{}, exists bool, err error) {
+func (i impl) Get(obj interface{}) (item interface{}, exists bool, err error) {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) GetByKey(key string) (item interface{}, exists bool, err error) {
+func (i impl) GetByKey(key string) (item interface{}, exists bool, err error) {
 	clusterName, namespace, name, err := SplitMetaNamespaceKey(key)
 	if err != nil {
 		return nil, false, err
@@ -108,10 +124,32 @@ func (i SharedIndexInformers) GetByKey(key string) (item interface{}, exists boo
 	return i.Cluster(clusterName).GetStore().Get(namespace + "/" + name)
 }
 
-func (i SharedIndexInformers) Replace(i2 []interface{}, s string) error {
+func (i impl) Replace(i2 []interface{}, s string) error {
 	panic("not implemented")
 }
 
-func (i SharedIndexInformers) Resync() error {
+func (i impl) Resync() error {
 	panic("not implemented")
+}
+
+func (i impl) AddEventHandler(handler cache.ResourceEventHandler) {
+	for _, j := range i {
+		j.AddEventHandler(handler)
+	}
+}
+
+func (i impl) AddEventHandlerWithResyncPeriod(handler cache.ResourceEventHandler, resyncPeriod time.Duration) {
+	panic("implement me")
+}
+
+func (i impl) GetController() cache.Controller {
+	panic("implement me")
+}
+
+func (i impl) LastSyncResourceVersion() string {
+	panic("implement me")
+}
+
+func (i impl) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
+	panic("implement me")
 }

@@ -5,28 +5,36 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-type Interfaces struct {
-	value map[string]dynamic.Interface
+type Interface interface {
+	// Cluster returns the client for the cluster, or nil.
+	Cluster(clusterName string) (client dynamic.Interface)
+	// InCluster returns the in-cluster client, or nil.
+	InCluster() (client dynamic.Interface)
 }
 
-func (i Interfaces) Cluster(clusterName string) (dynamic.Interface, bool) {
-	j, ok := i.value[clusterName]
-	return j, ok
+type impl map[string]dynamic.Interface
+
+func (i impl) Cluster(clusterName string) dynamic.Interface {
+	return i[clusterName]
 }
 
-func (i Interfaces) InCluster() dynamic.Interface {
-	v, _ := i.Cluster(rest.InClusterName)
-	return v
+func (i impl) InCluster() dynamic.Interface {
+	return i.Cluster(rest.InClusterName)
 }
 
-func NewForConfigs(configs rest.Configs) (Interfaces, error) {
-	clients := Interfaces{value: map[string]dynamic.Interface{}}
+func NewForConfigs(configs rest.Configs) (Interface, error) {
+	clients := make(impl)
 	for clusterName, r := range configs {
 		i, err := dynamic.NewForConfig(r)
 		if err != nil {
 			return clients, err
 		}
-		clients.value[clusterName] = i
+		clients[clusterName] = i
 	}
 	return clients, nil
+}
+
+// NewInCluster creates an instance containing only the in-cluster interface
+func NewInCluster(v dynamic.Interface) Interface {
+	return impl{rest.InClusterName: v}
 }

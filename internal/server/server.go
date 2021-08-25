@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	dynamic2 "github.com/argoproj-labs/multi-cluster-kubernetes/api/dynamic"
-	rest2 "github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
+	mcdynamic "github.com/argoproj-labs/multi-cluster-kubernetes/api/dynamic"
+	mcrest "github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
 	gorillaschema "github.com/gorilla/schema"
 	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -36,11 +36,11 @@ func init() {
 func New(config *rest.Config, namespace string) (func(ctx context.Context) error, error) {
 	ctx := context.Background()
 	secretInterface := kubernetes.NewForConfigOrDie(config).CoreV1().Secrets(namespace)
-	configs, err := rest2.NewConfigs(ctx, secretInterface)
+	configs, err := mcrest.NewConfigs(ctx, secretInterface)
 	if err != nil {
 		return nil, err
 	}
-	clients, err := dynamic2.NewForConfigs(configs)
+	clients, err := mcdynamic.NewForConfigs(configs)
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +86,8 @@ func New(config *rest.Config, namespace string) (func(ctx context.Context) error
 
 type server struct {
 	http.Server
-	configs rest2.Configs
-	clients dynamic2.Interfaces
+	configs mcrest.Configs
+	clients mcdynamic.Interface
 	disco   discovery.DiscoveryInterface
 }
 
@@ -201,8 +201,8 @@ func (s *server) create(r *http.Request, namespace string, gvr schema.GroupVersi
 }
 
 func (s *server) client(clusterName string) (dynamic.Interface, error) {
-	client, ok := s.clients.Cluster(clusterName)
-	if !ok {
+	client := s.clients.Cluster(clusterName)
+	if client == nil {
 		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
 	}
 	return client, nil
