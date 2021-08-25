@@ -1,9 +1,19 @@
 # Multi-Cluster Kubernetes
 
-This is a proof-of-concept to determine if what happens when we amalgamate the APIs from multiple Kubernetes API
-servers.
+A library to support writing Kubernetes applications that need to connect to multiple clusters.
 
-## Install
+## Features
+
+* Cluster credentials storage - loading and saving KUBECONFIG with secrets
+* CLI to manage those secrets
+* Multi-cluster/namespace resource ownership patterns - labelling resources to identify the owner
+* Multi-cluster implementations of:
+    * `MetaNamespaceKeyFunc` and friends
+    * `kuberentes.Interface`
+    * `dynamic.Interface`
+    * `cache.SharedIndexerInformer`
+
+## CLI Install
 
 ```
 go install github.com/argoproj-labs/multi-cluster-kubernetes/cmd/mck@v0.0.1
@@ -14,10 +24,4 @@ Add your current context as a cluster:
 ```
 mck cluster add
 ```
-
-## Fetaurse
-
-* Cluster credentials storage - saving KUBECONFIG in secrets
-* Cross-cluster/namespace resource ownership - labelling resources to identify the owner
-
 
