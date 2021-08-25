@@ -3,7 +3,7 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"github.com/argoproj-labs/multi-cluster-kubernetes/api"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/homedir"
 	"path/filepath"
@@ -45,7 +45,7 @@ func NewRemoveCommand() *cobra.Command {
 				return err
 			}
 			client := kubernetes.NewForConfigOrDie(restConfig)
-			if err := api.RemoveCluster(ctx, clusterName, client.CoreV1().Secrets(namespace)); err != nil {
+			if err := rest.RemoveConfig(ctx, clusterName, client.CoreV1().Secrets(namespace)); err != nil {
 				return err
 			}
 			fmt.Printf("cluster %q removed\n", clusterName)

@@ -1,0 +1,94 @@
+package labels
+
+import (
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"testing"
+)
+
+func TestSetOwnership(t *testing.T) {
+	t.Run("SameClusterAndNamespace", func(t *testing.T) {
+		obj := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "ns"},
+		}
+		SetOwnership(obj, "", &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "n", Namespace: "ns"},
+		}, schema.GroupVersionKind{})
+		assert.Len(t, obj.OwnerReferences, 1)
+	})
+	t.Run("DifferentNamespace", func(t *testing.T) {
+		obj := &corev1.Pod{}
+		SetOwnership(obj, "", &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "n", Namespace: "ns"},
+		}, schema.GroupVersionKind{})
+		assert.Len(t, obj.OwnerReferences, 0)
+		assert.Equal(t, map[string]string{
+			KeyOwnerClusterName: "",
+			KeyOwnerNamespace:   "ns",
+			KeyOwnerName:        "n",
+		}, obj.GetLabels())
+	})
+	t.Run("DifferentCluster", func(t *testing.T) {
+		obj := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns"}}
+		SetOwnership(obj, "cn", &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "n", Namespace: "ns"},
+		}, schema.GroupVersionKind{})
+		assert.Len(t, obj.OwnerReferences, 0)
+		assert.Equal(t, map[string]string{
+			KeyOwnerClusterName: "cn",
+			KeyOwnerNamespace:   "ns",
+			KeyOwnerName:        "n",
+		}, obj.GetLabels())
+	})
+}
+
+func TestGetOwnership(t *testing.T) {
+	t.Run("Orphan", func(t *testing.T) {
+		_, _, _, err := GetOwnership(&corev1.Pod{})
+		assert.Error(t, err)
+	})
+	t.Run("SameClusterAndNamespace", func(t *testing.T) {
+		clusterName, namespace, name, err := GetOwnership(&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:       "ns",
+				OwnerReferences: []metav1.OwnerReference{{Name: "n"}},
+			},
+		})
+		assert.NoError(t, err)
+		assert.Empty(t, clusterName)
+		assert.Equal(t, "ns", namespace)
+		assert.Equal(t, "n", name)
+	})
+	t.Run("DifferentNamespace", func(t *testing.T) {
+		clusterName, namespace, name, err := GetOwnership(&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					KeyOwnerClusterName: "",
+					KeyOwnerNamespace:   "ns",
+					KeyOwnerName:        "n",
+				},
+			},
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, "", clusterName)
+		assert.Equal(t, "ns", namespace)
+		assert.Equal(t, "n", name)
+	})
+	t.Run("DifferentCluster", func(t *testing.T) {
+		clusterName, namespace, name, err := GetOwnership(&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					KeyOwnerClusterName: "cn",
+					KeyOwnerNamespace:   "",
+					KeyOwnerName:        "n",
+				},
+			},
+		})
+		assert.NoError(t, err)
+		assert.Equal(t, "cn", clusterName)
+		assert.Equal(t, "", namespace)
+		assert.Equal(t, "n", name)
+	})
+}

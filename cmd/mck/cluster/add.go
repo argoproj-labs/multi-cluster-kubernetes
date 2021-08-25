@@ -3,7 +3,7 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"github.com/argoproj-labs/multi-cluster-kubernetes/api"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/homedir"
 	"path/filepath"
@@ -57,7 +57,7 @@ func NewAddCommand() *cobra.Command {
 				return err
 			}
 			client := kubernetes.NewForConfigOrDie(restConfig)
-			if err := api.AddCluster(ctx, clusterName, *c, *user, client.CoreV1().Secrets(namespace), api.WithHost(host)); err != nil {
+			if err := rest.AddConfig(ctx, clusterName, *c, *user, client.CoreV1().Secrets(namespace), rest.WithHost(host)); err != nil {
 				return err
 			}
 			fmt.Printf("cluster %q added\n", clusterName)

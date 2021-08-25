@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -14,7 +14,7 @@ func newConfig(c rest.Config, authInfo api.AuthInfo) config {
 		Username:           authInfo.Username,
 		Password:           authInfo.Password,
 		BearerToken:        authInfo.Token,
-		TLSClientConfig:    TLSClientConfig(c.TLSClientConfig),
+		TLSClientConfig:    tLSClientConfig(c.TLSClientConfig),
 		UserAgent:          c.UserAgent,
 		DisableCompression: c.DisableCompression,
 		QPS:                c.QPS,
@@ -29,7 +29,7 @@ type config struct {
 	Username           string                   `json:"username,omitempty"`
 	Password           string                   `json:"password,omitempty"`
 	BearerToken        string                   `json:"bearerToken,omitempty"`
-	TLSClientConfig    TLSClientConfig          `json:"tlsClient_config"`
+	TLSClientConfig    tLSClientConfig          `json:"tlsClient_config"`
 	UserAgent          string                   `json:"userAgent,omitempty"`
 	DisableCompression bool                     `json:"disableCompression,omitempty"`
 	QPS                float32                  `json:"qps,omitempty"`
@@ -40,7 +40,7 @@ type config struct {
 	Impersonate        rest.ImpersonationConfig `json:"impersonate,omitempty"`
 }
 
-type TLSClientConfig struct {
+type tLSClientConfig struct {
 	Insecure   bool     `json:"insecure,omitempty"`
 	ServerName string   `json:"serverName,omitempty"`
 	CertFile   string   `json:"certFile,omitempty"`
