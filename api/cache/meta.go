@@ -30,7 +30,7 @@ func MetaNamespaceKeyFunc(obj interface{}) (string, error) {
 
 func clusterName(meta metav1.Object) string {
 	if annotations := meta.GetAnnotations(); annotations != nil {
-		return annotations[labels.KeyClusterName]
+		return annotations[labels.KeyConfigName]
 	}
 	return ""
 }

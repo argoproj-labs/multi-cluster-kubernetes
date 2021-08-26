@@ -44,7 +44,7 @@ func TestMetaNamespaceKeyFunc(t *testing.T) {
 				Namespace: "ns",
 				Name:      "n",
 				Annotations: map[string]string{
-					labels.KeyClusterName: "cn",
+					labels.KeyConfigName: "cn",
 				},
 			},
 		})

@@ -1,37 +1,41 @@
 package kubernetes
 
 import (
-	mcrest "github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
 	"k8s.io/client-go/kubernetes"
 )
 
 type Interface interface {
-	// Cluster returns the client for the cluster, or nil.
-	Cluster(clusterName string) (client kubernetes.Interface)
+	// Config returns the client for the config, or nil.
+	Config(name string) (client kubernetes.Interface)
 	// InCluster returns the in-cluster client, or nil.
 	InCluster() (client kubernetes.Interface)
-	// Clusters returns an map from cluster name to clients. You must not modify this.
-	Clusters() map[string]kubernetes.Interface
+	// Configs returns an map from config name to clients. You must not modify this.
+	Configs() map[string]kubernetes.Interface
 }
 
 type impl map[string]kubernetes.Interface
 
-func (i impl) Cluster(clusterName string) kubernetes.Interface {
-	return i[clusterName]
+func (i impl) Config(name string) kubernetes.Interface {
+	return i[name]
 }
 
 func (i impl) InCluster() kubernetes.Interface {
-	return i.Cluster(mcrest.InClusterName)
+	return i.Config(config.InClusterName)
 }
 
-func (i impl) Clusters() map[string]kubernetes.Interface {
+func (i impl) Configs() map[string]kubernetes.Interface {
 	return i
 }
 
-func NewForConfigs(configs mcrest.Configs) (Interface, error) {
+func NewForConfigs(configs config.Configs) (Interface, error) {
 	clients := make(impl)
 	for clusterName, c := range configs {
-		i, err := kubernetes.NewForConfig(c)
+		restConfig, err := c.ClientConfig()
+		if err != nil {
+			return clients, err
+		}
+		i, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
 			return clients, err
 		}
@@ -42,5 +46,5 @@ func NewForConfigs(configs mcrest.Configs) (Interface, error) {
 
 // NewInCluster creates an instance containing only the in-cluster interface
 func NewInCluster(v kubernetes.Interface) Interface {
-	return impl{mcrest.InClusterName: v}
+	return impl{config.InClusterName: v}
 }

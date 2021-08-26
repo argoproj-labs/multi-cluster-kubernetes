@@ -1,7 +1,7 @@
 package cache
 
 import (
-	mcrest "github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
 	"k8s.io/client-go/tools/cache"
 	"time"
 )
@@ -10,7 +10,7 @@ type SharedIndexInformer interface {
 	cache.SharedIndexInformer
 	cache.Store
 	cache.Indexer
-	Cluster(name string) cache.SharedIndexInformer
+	Config(name string) cache.SharedIndexInformer
 	InCluster() cache.SharedIndexInformer
 }
 
@@ -20,12 +20,12 @@ func NewSharedIndexInformers(informers map[string]cache.SharedIndexInformer) Sha
 	return impl(informers)
 }
 
-func (i impl) Cluster(clusterName string) cache.SharedIndexInformer {
-	return i[clusterName]
+func (i impl) Config(name string) cache.SharedIndexInformer {
+	return i[name]
 }
 
 func (i impl) InCluster() cache.SharedIndexInformer {
-	return i.Cluster(mcrest.InClusterName)
+	return i.Config(config.InClusterName)
 }
 
 func (i impl) GetStore() cache.Store {
@@ -121,7 +121,7 @@ func (i impl) GetByKey(key string) (item interface{}, exists bool, err error) {
 	if err != nil {
 		return nil, false, err
 	}
-	return i.Cluster(clusterName).GetStore().Get(namespace + "/" + name)
+	return i.Config(clusterName).GetStore().Get(namespace + "/" + name)
 }
 
 func (i impl) Replace(i2 []interface{}, s string) error {

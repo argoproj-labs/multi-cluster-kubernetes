@@ -1,9 +1,9 @@
-package cluster
+package config
 
 import (
 	"context"
 	"fmt"
-	"github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/homedir"
 	"path/filepath"
@@ -18,7 +18,7 @@ func NewRemoveCommand() *cobra.Command {
 		namespace  string
 	)
 	cmd := &cobra.Command{
-		Use:     "rm [CLUSTER_NAME]",
+		Use:     "rm [CONFIG_NAME]",
 		Aliases: []string{"rm"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
@@ -28,11 +28,11 @@ func NewRemoveCommand() *cobra.Command {
 				return err
 			}
 
-			clusterName := startingConfig.CurrentContext
+			configName := startingConfig.CurrentContext
 			switch len(args) {
 			case 0:
 			case 1:
-				clusterName = args[0]
+				configName = args[0]
 			default:
 				return fmt.Errorf("expected 0 or 1 args")
 			}
@@ -45,10 +45,10 @@ func NewRemoveCommand() *cobra.Command {
 				return err
 			}
 			client := kubernetes.NewForConfigOrDie(restConfig)
-			if err := rest.RemoveConfig(ctx, clusterName, client.CoreV1().Secrets(namespace)); err != nil {
+			if err := config.RemoveConfig(ctx, configName, client.CoreV1().Secrets(namespace)); err != nil {
 				return err
 			}
-			fmt.Printf("cluster %q removed\n", clusterName)
+			fmt.Printf("config %q removed\n", configName)
 			return nil
 		},
 	}

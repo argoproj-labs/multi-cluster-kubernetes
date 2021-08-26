@@ -1,40 +1,44 @@
 package dynamic
 
 import (
-	"github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
 	"k8s.io/client-go/dynamic"
 )
 
 type Interface interface {
-	// Cluster returns the client for the cluster, or nil.
-	Cluster(clusterName string) (client dynamic.Interface)
+	// Config returns the client for the named config, or nil.
+	Config(name string) (client dynamic.Interface)
 	// InCluster returns the in-cluster client, or nil.
 	InCluster() (client dynamic.Interface)
 }
 
 type impl map[string]dynamic.Interface
 
-func (i impl) Cluster(clusterName string) dynamic.Interface {
-	return i[clusterName]
+func (i impl) Config(name string) dynamic.Interface {
+	return i[name]
 }
 
 func (i impl) InCluster() dynamic.Interface {
-	return i.Cluster(rest.InClusterName)
+	return i.Config(config.InClusterName)
 }
 
-func NewForConfigs(configs rest.Configs) (Interface, error) {
+func NewForConfigs(configs config.Configs) (Interface, error) {
 	clients := make(impl)
-	for clusterName, r := range configs {
-		i, err := dynamic.NewForConfig(r)
+	for configName, r := range configs {
+		restConfig, err := r.ClientConfig()
 		if err != nil {
 			return clients, err
 		}
-		clients[clusterName] = i
+		i, err := dynamic.NewForConfig(restConfig)
+		if err != nil {
+			return clients, err
+		}
+		clients[configName] = i
 	}
 	return clients, nil
 }
 
 // NewInCluster creates an instance containing only the in-cluster interface
 func NewInCluster(v dynamic.Interface) Interface {
-	return impl{rest.InClusterName: v}
+	return impl{config.InClusterName: v}
 }

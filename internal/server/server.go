@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
 	mcdynamic "github.com/argoproj-labs/multi-cluster-kubernetes/api/dynamic"
-	mcrest "github.com/argoproj-labs/multi-cluster-kubernetes/api/rest"
 	gorillaschema "github.com/gorilla/schema"
 	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -33,10 +33,10 @@ func init() {
 	decoder.IgnoreUnknownKeys(true)
 }
 
-func New(config *rest.Config, namespace string) (func(ctx context.Context) error, error) {
+func New(restConfig *rest.Config, namespace string) (func(ctx context.Context) error, error) {
 	ctx := context.Background()
-	secretInterface := kubernetes.NewForConfigOrDie(config).CoreV1().Secrets(namespace)
-	configs, err := mcrest.NewConfigs(ctx, secretInterface)
+	secretInterface := kubernetes.NewForConfigOrDie(restConfig).CoreV1().Secrets(namespace)
+	configs, err := config.NewConfigs(ctx, secretInterface)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func New(config *rest.Config, namespace string) (func(ctx context.Context) error
 	mux := http.NewServeMux()
 	server := server{
 		Server:  http.Server{Addr: ":2473", Handler: mux},
-		disco:   discovery.NewDiscoveryClientForConfigOrDie(config),
+		disco:   discovery.NewDiscoveryClientForConfigOrDie(restConfig),
 		configs: configs,
 		clients: clients,
 	}
@@ -86,7 +86,7 @@ func New(config *rest.Config, namespace string) (func(ctx context.Context) error
 
 type server struct {
 	http.Server
-	configs mcrest.Configs
+	configs config.Configs
 	clients mcdynamic.Interface
 	disco   discovery.DiscoveryInterface
 }
@@ -201,7 +201,7 @@ func (s *server) create(r *http.Request, namespace string, gvr schema.GroupVersi
 }
 
 func (s *server) client(clusterName string) (dynamic.Interface, error) {
-	client := s.clients.Cluster(clusterName)
+	client := s.clients.Config(clusterName)
 	if client == nil {
 		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
 	}

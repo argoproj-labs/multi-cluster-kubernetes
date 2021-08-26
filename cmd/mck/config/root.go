@@ -1,4 +1,4 @@
-package cluster
+package config
 
 import (
 	"github.com/spf13/cobra"
@@ -6,7 +6,7 @@ import (
 
 func NewCommand() *cobra.Command {
 	var command = &cobra.Command{
-		Use: "cluster",
+		Use: "config",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},
