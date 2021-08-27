@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
+	apiconfig "github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
 	"k8s.io/client-go/tools/cache"
 	"time"
 )
@@ -25,7 +25,7 @@ func (i impl) Config(name string) cache.SharedIndexInformer {
 }
 
 func (i impl) InCluster() cache.SharedIndexInformer {
-	return i.Config(config.InClusterName)
+	return i.Config(apiconfig.InCluster)
 }
 
 func (i impl) GetStore() cache.Store {
@@ -117,11 +117,11 @@ func (i impl) Get(obj interface{}) (item interface{}, exists bool, err error) {
 }
 
 func (i impl) GetByKey(key string) (item interface{}, exists bool, err error) {
-	clusterName, namespace, name, err := SplitMetaNamespaceKey(key)
+	cluster, namespace, name, err := SplitMetaNamespaceKey(key)
 	if err != nil {
 		return nil, false, err
 	}
-	return i.Config(clusterName).GetStore().Get(namespace + "/" + name)
+	return i.Config(cluster).GetStore().Get(namespace + "/" + name)
 }
 
 func (i impl) Replace(i2 []interface{}, s string) error {

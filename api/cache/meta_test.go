@@ -14,9 +14,9 @@ func TestSplitMetaNamespaceKey(t *testing.T) {
 		assert.Error(t, err)
 	})
 	t.Run("Empty", func(t *testing.T) {
-		clusterName, namespace, name, err := SplitMetaNamespaceKey("a/b/c")
+		cluster, namespace, name, err := SplitMetaNamespaceKey("a/b/c")
 		assert.NoError(t, err)
-		assert.Equal(t, "a", clusterName)
+		assert.Equal(t, "a", cluster)
 		assert.Equal(t, "b", namespace)
 		assert.Equal(t, "c", name)
 	})
@@ -44,7 +44,7 @@ func TestMetaNamespaceKeyFunc(t *testing.T) {
 				Namespace: "ns",
 				Name:      "n",
 				Annotations: map[string]string{
-					labels.KeyConfigName: "cn",
+					labels.KeyCluster: "cn",
 				},
 			},
 		})

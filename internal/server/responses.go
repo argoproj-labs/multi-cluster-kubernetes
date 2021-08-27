@@ -49,8 +49,8 @@ func status(w http.ResponseWriter) func(v interface{}) {
 	}
 }
 
-func stream(w http.ResponseWriter) func(clusterName string, _watch watch.Interface) {
-	return func(clusterName string, _watch watch.Interface) {
+func stream(w http.ResponseWriter) func(cluster string, _watch watch.Interface) {
+	return func(cluster string, _watch watch.Interface) {
 		defer _watch.Stop()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -60,7 +60,7 @@ func stream(w http.ResponseWriter) func(clusterName string, _watch watch.Interfa
 		for event := range _watch.ResultChan() {
 			v, ok := event.Object.(*unstructured.Unstructured)
 			if ok {
-				v.GetLabels()["clusterName"] = clusterName
+				v.GetLabels()["cluster"] = cluster
 				_ = successes.Encode(map[string]interface{}{"type": event.Type, "object": v})
 			} else {
 				_ = failures.Encode(map[string]interface{}{"type": event.Type, "object": event.Object})

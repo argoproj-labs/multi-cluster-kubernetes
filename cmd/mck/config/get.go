@@ -1,35 +1,29 @@
 package config
 
 import (
-	context "context"
+	"context"
 	"fmt"
 	"github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
+	"k8s.io/client-go/tools/clientcmd/api"
+	"sigs.k8s.io/yaml"
+
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
 	"path/filepath"
 )
 
-func NewAddCommand() *cobra.Command {
+func NewGetCommand() *cobra.Command {
 	var (
 		kubeconfig string
 		namespace  string
+		raw        bool
 	)
 	cmd := &cobra.Command{
-		Use: "add [CONTEXT_NAME]",
+		Use: "get",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
-
-			startingConfig, err := clientcmd.NewDefaultPathOptions().GetStartingConfig()
-			if err != nil {
-				return err
-			}
-
-			if len(args) == 1 {
-				startingConfig.CurrentContext = args[0]
-			}
 
 			clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}, &clientcmd.ConfigOverrides{})
 			restConfig, err := clientConfig.ClientConfig()
@@ -45,21 +39,25 @@ func NewAddCommand() *cobra.Command {
 
 			secretsInterface := kubernetes.NewForConfigOrDie(restConfig).CoreV1().Secrets(namespace)
 
-			err = clientcmdapi.MinifyConfig(startingConfig)
-			if err != nil {
-				return err
-			}
-			err = config.New(secretsInterface).Add(ctx, startingConfig)
+			c, err := config.New(secretsInterface).Get(ctx)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("context %q added\n", startingConfig.CurrentContext)
+			if !raw {
+				api.ShortenConfig(c)
+			}
+			data, err := yaml.Marshal(c)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(data))
 
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "(optional) absolute path to the kubeconfig file")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "namespace")
+	cmd.Flags().BoolVar(&raw, "raw", false, "raw")
 	return cmd
 }

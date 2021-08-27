@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 type Interface interface {
@@ -21,30 +22,26 @@ func (i impl) Config(name string) kubernetes.Interface {
 }
 
 func (i impl) InCluster() kubernetes.Interface {
-	return i.Config(config.InClusterName)
+	return i.Config(config.InCluster)
 }
 
 func (i impl) Configs() map[string]kubernetes.Interface {
 	return i
 }
 
-func NewForConfigs(configs config.Configs) (Interface, error) {
+func NewForConfigs(configs map[string]*rest.Config) (Interface, error) {
 	clients := make(impl)
-	for clusterName, c := range configs {
-		restConfig, err := c.ClientConfig()
+	for contextName, r := range configs {
+		i, err := kubernetes.NewForConfig(r)
 		if err != nil {
 			return clients, err
 		}
-		i, err := kubernetes.NewForConfig(restConfig)
-		if err != nil {
-			return clients, err
-		}
-		clients[clusterName] = i
+		clients[contextName] = i
 	}
 	return clients, nil
 }
 
 // NewInCluster creates an instance containing only the in-cluster interface
 func NewInCluster(v kubernetes.Interface) Interface {
-	return impl{config.InClusterName: v}
+	return impl{config.InCluster: v}
 }

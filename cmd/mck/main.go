@@ -2,13 +2,14 @@ package main
 
 import (
 	"github.com/argoproj-labs/multi-cluster-kubernetes/cmd/mck/config"
-	server "github.com/argoproj-labs/multi-cluster-kubernetes/cmd/mck/server"
+	"github.com/argoproj-labs/multi-cluster-kubernetes/cmd/mck/server"
 	"github.com/spf13/cobra"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 func main() {
 	cmd := cobra.Command{
+		Use: "mck",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},

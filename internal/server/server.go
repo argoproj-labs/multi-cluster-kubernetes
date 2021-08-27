@@ -25,7 +25,7 @@ import (
 	"strings"
 )
 
-const keyClusterName = "clusterName"
+const keyCluster = "cluster"
 
 var decoder = gorillaschema.NewDecoder()
 
@@ -36,11 +36,15 @@ func init() {
 func New(restConfig *rest.Config, namespace string) (func(ctx context.Context) error, error) {
 	ctx := context.Background()
 	secretInterface := kubernetes.NewForConfigOrDie(restConfig).CoreV1().Secrets(namespace)
-	configs, err := config.NewConfigs(ctx, secretInterface)
+	x, err := config.New(secretInterface).Get(ctx)
 	if err != nil {
 		return nil, err
 	}
-	clients, err := mcdynamic.NewForConfigs(configs)
+	restConfigs, err := config.NewRestConfigs(config.NewClientConfigs(*x))
+	if err != nil {
+		return nil, err
+	}
+	clients, err := mcdynamic.NewForConfigs(restConfigs)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +52,6 @@ func New(restConfig *rest.Config, namespace string) (func(ctx context.Context) e
 	server := server{
 		Server:  http.Server{Addr: ":2473", Handler: mux},
 		disco:   discovery.NewDiscoveryClientForConfigOrDie(restConfig),
-		configs: configs,
 		clients: clients,
 	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +89,6 @@ func New(restConfig *rest.Config, namespace string) (func(ctx context.Context) e
 
 type server struct {
 	http.Server
-	configs config.Configs
 	clients mcdynamic.Interface
 	disco   discovery.DiscoveryInterface
 }
@@ -149,11 +151,11 @@ func (s *server) apis(w http.ResponseWriter, r *http.Request, parts []string) {
 			status(w)(s.deleteCollection(r, namespace, gvr))
 		case "GET":
 			if r.URL.Query().Get("watch") == "true" {
-				clusterName, _watch, err := s.watch(r, namespace, gvr)
+				cluster, _watch, err := s.watch(r, namespace, gvr)
 				if err != nil {
 					status(w)(err)
 				} else {
-					stream(w)(clusterName, _watch)
+					stream(w)(cluster, _watch)
 				}
 			} else {
 				status2(w)(s.list(r, namespace, gvr))
@@ -192,24 +194,24 @@ func (s *server) create(r *http.Request, namespace string, gvr schema.GroupVersi
 	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
 		return nil, err
 	}
-	clusterName := obj.GetLabels()[keyClusterName]
-	resourceInterface, err := s.resource(clusterName, gvr, namespace)
+	cluster := obj.GetLabels()[keyCluster]
+	resourceInterface, err := s.resource(cluster, gvr, namespace)
 	if err != nil {
 		return nil, err
 	}
 	return resourceInterface.Create(r.Context(), obj, opts)
 }
 
-func (s *server) client(clusterName string) (dynamic.Interface, error) {
-	client := s.clients.Config(clusterName)
+func (s *server) client(cluster string) (dynamic.Interface, error) {
+	client := s.clients.Config(cluster)
 	if client == nil {
-		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", clusterName))
+		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", cluster))
 	}
 	return client, nil
 }
 
-func (s *server) resource(clusterName string, gvr schema.GroupVersionResource, namespace string) (dynamic.ResourceInterface, error) {
-	client, err := s.client(clusterName)
+func (s *server) resource(cluster string, gvr schema.GroupVersionResource, namespace string) (dynamic.ResourceInterface, error) {
+	client, err := s.client(cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -217,11 +219,11 @@ func (s *server) resource(clusterName string, gvr schema.GroupVersionResource, n
 }
 
 func (s *server) list(r *http.Request, namespace string, gvr schema.GroupVersionResource) (*unstructured.UnstructuredList, error) {
-	opts, clusterName, err := s.listOptions(r)
+	opts, cluster, err := s.listOptions(r)
 	if err != nil {
 		return nil, err
 	}
-	resourceInterface, err := s.resource(clusterName, gvr, namespace)
+	resourceInterface, err := s.resource(cluster, gvr, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -230,17 +232,17 @@ func (s *server) list(r *http.Request, namespace string, gvr schema.GroupVersion
 		return nil, err
 	}
 	for _, item := range list.Items {
-		item.GetLabels()[keyClusterName] = clusterName
+		item.GetLabels()[keyCluster] = cluster
 	}
 	return list, err
 }
 
 func (s *server) watch(r *http.Request, namespace string, gvr schema.GroupVersionResource) (string, watch.Interface, error) {
-	opts, clusterName, err := s.listOptions(r)
+	opts, cluster, err := s.listOptions(r)
 	if err != nil {
 		return "", nil, err
 	}
-	resourceInterface, err := s.resource(clusterName, gvr, namespace)
+	resourceInterface, err := s.resource(cluster, gvr, namespace)
 	if err != nil {
 		return "", nil, err
 	}
@@ -248,7 +250,7 @@ func (s *server) watch(r *http.Request, namespace string, gvr schema.GroupVersio
 	if err != nil {
 		return "", nil, err
 	}
-	return clusterName, w, nil
+	return cluster, w, nil
 }
 
 func (s *server) update(r *http.Request, namespace string, gvr schema.GroupVersionResource) (*unstructured.Unstructured, error) {
@@ -260,17 +262,17 @@ func (s *server) update(r *http.Request, namespace string, gvr schema.GroupVersi
 	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
 		return nil, err
 	}
-	clusterName := obj.GetLabels()[keyClusterName]
-	resourceInterface, err := s.resource(clusterName, gvr, namespace)
+	cluster := obj.GetLabels()[keyCluster]
+	resourceInterface, err := s.resource(cluster, gvr, namespace)
 	if err != nil {
 		return nil, err
 	}
-	delete(obj.GetLabels(), keyClusterName)
+	delete(obj.GetLabels(), keyCluster)
 	v, err := resourceInterface.Update(r.Context(), obj, opts)
 	if err != nil {
 		return nil, err
 	}
-	v.GetLabels()[keyClusterName] = clusterName
+	v.GetLabels()[keyCluster] = cluster
 	return v, err
 }
 
@@ -283,12 +285,12 @@ func (s *server) patch(r *http.Request, namespace, name string, gvr schema.Group
 	if err := json.NewDecoder(r.Body).Decode(obj); err != nil {
 		return nil, err
 	}
-	clusterName := obj.GetLabels()[keyClusterName]
-	resourceInterface, err := s.resource(clusterName, gvr, namespace)
+	cluster := obj.GetLabels()[keyCluster]
+	resourceInterface, err := s.resource(cluster, gvr, namespace)
 	if err != nil {
 		return nil, err
 	}
-	delete(obj.GetLabels(), keyClusterName)
+	delete(obj.GetLabels(), keyCluster)
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
@@ -297,7 +299,7 @@ func (s *server) patch(r *http.Request, namespace, name string, gvr schema.Group
 	if err != nil {
 		return nil, err
 	}
-	v.GetLabels()[keyClusterName] = clusterName
+	v.GetLabels()[keyCluster] = cluster
 	return v, err
 }
 
@@ -306,11 +308,11 @@ func (s *server) deleteCollection(r *http.Request, namespace string, gvr schema.
 	if err := decoder.Decode(&opts, r.URL.Query()); err != nil {
 		return err
 	}
-	listOptions, clusterName, err := s.listOptions(r)
+	listOptions, cluster, err := s.listOptions(r)
 	if err != nil {
 		return err
 	}
-	resourceInterface, err := s.resource(clusterName, gvr, namespace)
+	resourceInterface, err := s.resource(cluster, gvr, namespace)
 	if err != nil {
 		return err
 	}
@@ -328,20 +330,20 @@ func (s *server) listOptions(r *http.Request) (metav1.ListOptions, string, error
 	}
 	requirements, _ := selector.Requirements()
 	newSelector := labels.NewSelector()
-	clusterName := ""
+	cluster := ""
 	for _, r := range requirements {
-		if r.Key() != keyClusterName {
+		if r.Key() != keyCluster {
 			newSelector = newSelector.Add(r)
 		} else {
 			var ok bool
-			clusterName, ok = r.Values().PopAny()
+			cluster, ok = r.Values().PopAny()
 			if !ok {
-				return listOptions, "", errors.NewBadRequest("invalid clusterName selector")
+				return listOptions, "", errors.NewBadRequest("invalid cluster selector")
 			}
 		}
 	}
 	listOptions.LabelSelector = newSelector.String()
-	return listOptions, clusterName, nil
+	return listOptions, cluster, nil
 }
 
 func (s *server) openapi(w http.ResponseWriter) {

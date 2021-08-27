@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func SplitMetaNamespaceKey(key string) (clusterName, namespace, name string, err error) {
+func SplitMetaNamespaceKey(key string) (cluster, namespace, name string, err error) {
 	parts := strings.Split(key, "/")
 	if len(parts) != 3 {
 		return "", "", "", fmt.Errorf("expected %q to have 3 parts", key)
@@ -16,8 +16,8 @@ func SplitMetaNamespaceKey(key string) (clusterName, namespace, name string, err
 	return parts[0], parts[1], parts[2], err
 }
 
-func JoinMetaNamespaceKey(clusterName, namespace, name string) string {
-	return clusterName + "/" + namespace + "/" + name
+func JoinMetaNamespaceKey(cluster, namespace, name string) string {
+	return cluster + "/" + namespace + "/" + name
 }
 
 func MetaNamespaceKeyFunc(obj interface{}) (string, error) {
@@ -25,12 +25,12 @@ func MetaNamespaceKeyFunc(obj interface{}) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("object has no meta: %w", err)
 	}
-	return clusterName(m) + "/" + m.GetNamespace() + "/" + m.GetName(), nil
+	return cluster(m) + "/" + m.GetNamespace() + "/" + m.GetName(), nil
 }
 
-func clusterName(meta metav1.Object) string {
+func cluster(meta metav1.Object) string {
 	if annotations := meta.GetAnnotations(); annotations != nil {
-		return annotations[labels.KeyConfigName]
+		return annotations[labels.KeyCluster]
 	}
 	return ""
 }

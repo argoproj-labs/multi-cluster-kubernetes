@@ -1,6 +1,8 @@
 install:
-	go run ./cmd/mck config rm garbage -n default
-	go run ./cmd/mck config add default -n default
+	kubectl delete secret kubeconfig -n default --ignore-not-found
+	go run ./cmd/mck config add -n default
+	go run ./cmd/mck config add -n default
+	go run ./cmd/mck config get -n default
 start: install
 	go run ./cmd/mck server -n default
 test: install
