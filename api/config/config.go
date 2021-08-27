@@ -73,6 +73,9 @@ func (g Client) Add(ctx context.Context, value *clientcmdapi.Config) error {
 
 func (g Client) Get(ctx context.Context) (*clientcmdapi.Config, error) {
 	secret, err := g.secretsInterface.Get(ctx, resourceName, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return clientcmdapi.NewConfig(), nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubeconfig secret: %w", err)
 	}
