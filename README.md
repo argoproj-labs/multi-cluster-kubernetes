@@ -16,7 +16,7 @@ A library to support writing Kubernetes applications that need to connect to mul
 ## CLI Install
 
 ```
-go install github.com/argoproj-labs/multi-cluster-kubernetes/cmd/mck@v0.0.1
+go install github.com/argoproj-labs/multi-cluster-kubernetes/cmd/mck@latest
 ```
 
 Add your current context as a cluster:
