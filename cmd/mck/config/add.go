@@ -18,7 +18,7 @@ func NewAddCommand() *cobra.Command {
 		namespace  string
 	)
 	cmd := &cobra.Command{
-		Use: "add [CONTEXT_NAME]",
+		Use: "add NAME [CONTEXT_NAME]",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 
@@ -27,8 +27,9 @@ func NewAddCommand() *cobra.Command {
 				return err
 			}
 
-			if len(args) == 1 {
-				startingConfig.CurrentContext = args[0]
+			name := args[0]
+			if len(args) == 2 {
+				startingConfig.CurrentContext = args[1]
 			}
 
 			clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}, &clientcmd.ConfigOverrides{})
@@ -49,12 +50,12 @@ func NewAddCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			err = config.New(secretsInterface).Add(ctx, startingConfig)
+			err = config.New(secretsInterface).Add(ctx, name, startingConfig)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("context %q added\n", startingConfig.CurrentContext)
+			fmt.Printf("config %q from context %q added\n", name, startingConfig.CurrentContext)
 
 			return nil
 		},

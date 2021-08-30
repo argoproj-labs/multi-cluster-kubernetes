@@ -36,7 +36,7 @@ func init() {
 func New(restConfig *rest.Config, namespace string) (func(ctx context.Context) error, error) {
 	ctx := context.Background()
 	secretInterface := kubernetes.NewForConfigOrDie(restConfig).CoreV1().Secrets(namespace)
-	x, err := config.New(secretInterface).Get(ctx)
+	x, err := config.New(secretInterface).Get(ctx, "default")
 	if err != nil {
 		return nil, err
 	}

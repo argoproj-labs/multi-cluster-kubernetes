@@ -13,9 +13,10 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-// InCluster is a reserved name for the in-cluster configuration.
-const InCluster = "@in-cluster"
-const resourceName = "kubeconfig"
+var resourceName = func(name string) string {
+	return fmt.Sprintf("%s-kubeconfig", name)
+}
+
 const secretKey = "value"
 
 type Client struct {
@@ -26,7 +27,8 @@ func New(secretsInterface typedcorev1.SecretInterface) Client {
 	return Client{secretsInterface}
 }
 
-func (g Client) Add(ctx context.Context, value *clientcmdapi.Config) error {
+func (g Client) Add(ctx context.Context, name string, value *clientcmdapi.Config) error {
+	resourceName := resourceName(name)
 	secret, err := g.secretsInterface.Get(ctx, resourceName, metav1.GetOptions{})
 	notFound := errors.IsNotFound(err)
 	if notFound {
@@ -71,7 +73,8 @@ func (g Client) Add(ctx context.Context, value *clientcmdapi.Config) error {
 	return nil
 }
 
-func (g Client) Get(ctx context.Context) (*clientcmdapi.Config, error) {
+func (g Client) Get(ctx context.Context, name string) (*clientcmdapi.Config, error) {
+	resourceName := resourceName(name)
 	secret, err := g.secretsInterface.Get(ctx, resourceName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return clientcmdapi.NewConfig(), nil

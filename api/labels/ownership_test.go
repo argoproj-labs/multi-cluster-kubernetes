@@ -15,14 +15,14 @@ func TestSetOwnership(t *testing.T) {
 		}
 		SetOwnership(obj, "", &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{Name: "n", Namespace: "ns"},
-		}, schema.GroupVersionKind{})
+		}, "", schema.GroupVersionKind{})
 		assert.Len(t, obj.OwnerReferences, 1)
 	})
 	t.Run("DifferentNamespace", func(t *testing.T) {
 		obj := &corev1.Pod{}
 		SetOwnership(obj, "", &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{Name: "n", Namespace: "ns"},
-		}, schema.GroupVersionKind{})
+		}, "", schema.GroupVersionKind{})
 		assert.Len(t, obj.OwnerReferences, 0)
 		assert.Equal(t, map[string]string{
 			KeyOwnerCluster:   "",
@@ -32,9 +32,9 @@ func TestSetOwnership(t *testing.T) {
 	})
 	t.Run("DifferentCluster", func(t *testing.T) {
 		obj := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns"}}
-		SetOwnership(obj, "cn", &corev1.Pod{
+		SetOwnership(obj, "", &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{Name: "n", Namespace: "ns"},
-		}, schema.GroupVersionKind{})
+		}, "cn", schema.GroupVersionKind{})
 		assert.Len(t, obj.OwnerReferences, 0)
 		assert.Equal(t, map[string]string{
 			KeyOwnerCluster:   "cn",

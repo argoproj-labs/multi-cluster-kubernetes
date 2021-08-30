@@ -6,8 +6,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func SetOwnership(obj metav1.Object, cluster string, owner metav1.Object, gvk schema.GroupVersionKind) {
-	if cluster == "" && obj.GetNamespace() == owner.GetNamespace() {
+func SetOwnership(obj metav1.Object, objCluster string, owner metav1.Object, ownerCluster string, gvk schema.GroupVersionKind) {
+	if objCluster == ownerCluster && obj.GetNamespace() == owner.GetNamespace() {
 		obj.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(owner, gvk)})
 		return
 	}
@@ -15,7 +15,7 @@ func SetOwnership(obj metav1.Object, cluster string, owner metav1.Object, gvk sc
 	if v == nil {
 		v = map[string]string{}
 	}
-	v[KeyOwnerCluster] = cluster
+	v[KeyOwnerCluster] = ownerCluster
 	v[KeyOwnerNamespace] = owner.GetNamespace()
 	v[KeyOwnerName] = owner.GetName()
 	obj.SetLabels(v)

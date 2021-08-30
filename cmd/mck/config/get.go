@@ -21,9 +21,10 @@ func NewGetCommand() *cobra.Command {
 		raw        bool
 	)
 	cmd := &cobra.Command{
-		Use: "get",
+		Use: "get NAME",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
+			name := args[0]
 
 			clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}, &clientcmd.ConfigOverrides{})
 			restConfig, err := clientConfig.ClientConfig()
@@ -39,7 +40,7 @@ func NewGetCommand() *cobra.Command {
 
 			secretsInterface := kubernetes.NewForConfigOrDie(restConfig).CoreV1().Secrets(namespace)
 
-			c, err := config.New(secretsInterface).Get(ctx)
+			c, err := config.New(secretsInterface).Get(ctx, name)
 			if err != nil {
 				return err
 			}
