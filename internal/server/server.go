@@ -203,7 +203,7 @@ func (s *server) create(r *http.Request, namespace string, gvr schema.GroupVersi
 }
 
 func (s *server) client(cluster string) (dynamic.Interface, error) {
-	client := s.clients.Config(cluster)
+	client := s.clients.Cluster(cluster)
 	if client == nil {
 		return nil, errors.NewBadRequest(fmt.Sprintf("unknown cluster %q", cluster))
 	}

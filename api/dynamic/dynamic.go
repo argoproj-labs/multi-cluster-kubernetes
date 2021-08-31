@@ -1,26 +1,19 @@
 package dynamic
 
 import (
-	"github.com/argoproj-labs/multi-cluster-kubernetes/api/config"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
 
 type Interface interface {
-	// Config returns the client for the named config, or nil.
-	Config(name string) (client dynamic.Interface)
-	// InCluster returns the in-cluster client, or nil.
-	InCluster() (client dynamic.Interface)
+	// Cluster returns the client for the named config, or nil.
+	Cluster(name string) (client dynamic.Interface)
 }
 
 type impl map[string]dynamic.Interface
 
-func (i impl) Config(name string) dynamic.Interface {
+func (i impl) Cluster(name string) dynamic.Interface {
 	return i[name]
-}
-
-func (i impl) InCluster() dynamic.Interface {
-	return i.Config(config.InCluster)
 }
 
 func NewForConfigs(configs map[string]*rest.Config) (Interface, error) {
@@ -35,7 +28,7 @@ func NewForConfigs(configs map[string]*rest.Config) (Interface, error) {
 	return clients, nil
 }
 
-// NewInCluster creates an instance containing only the in-cluster interface
-func NewInCluster(v dynamic.Interface) Interface {
-	return impl{config.InCluster: v}
+// NewSingleton creates an instance containing a single interface
+func NewSingleton(name string, v dynamic.Interface) Interface {
+	return impl{name: v}
 }
