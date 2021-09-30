@@ -1,14 +1,16 @@
-install:
-	kubectl -n default delete secret -l multi-cluster.argoproj.io/kubeconfig
-	# test we can run without 404 error
-	go run ./cmd/mck config get -n default default
-	go run ./cmd/mck config add -n default default
-	# test we do not get 409 error
-	go run ./cmd/mck config add -n default default
-	go run ./cmd/mck config get -n default default
-start: install
-	go run ./cmd/mck server -n default
-test: install
-	go test ./...
+# Help
+.PHONY: default
+default:
+	@echo "Please specify a build target. The choices are:"
+	@echo "    test:            Run unit tests"
+	@echo "    lint:            Run linting checks"
+
+.PHONY: test
+test:
+	@echo "============= Running unit tests ============="
+	./hack/makecmd test
+
+.PHONY: lint
 lint:
-	golangci-lint run --fix
+	@echo "============= Running linting checks ============="
+	./hack/makecmd lint

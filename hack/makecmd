@@ -1,0 +1,21 @@
+#!/bin/bash
+
+run_on_go_files() {
+  go "$@" ./...
+}
+
+lint() {
+  golangci-lint run --fix
+}
+
+for arg in "$@"
+do
+  case $arg in
+    test)
+      run_on_go_files test -v
+    ;;
+    lint)
+      lint
+    ;;
+  esac
+done
