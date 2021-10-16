@@ -14,6 +14,9 @@ do
     test)
       run_on_go_files test -v
     ;;
+    build)
+      run_on_go_files build -v
+    ;;
     lint)
       lint
     ;;
