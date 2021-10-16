@@ -5,6 +5,7 @@ default:
 	@echo "    test:            Run unit tests"
 	@echo "    build:           Build go code"
 	@echo "    lint:            Run linting checks"
+	@echo "    pre-commit:      Run pre-commit checks"
 
 .PHONY: test
 test:
@@ -20,3 +21,10 @@ build:
 lint:
 	@echo "============= Running linting checks ============="
 	./hack/makecmd lint
+
+.PHONY: pre-commit
+pre-commit:
+	@echo "============= Running pre-commit checks ============="
+	./hack/makecmd lint
+	./hack/makecmd test
+	./hack/makecmd build
