@@ -1,8 +1,9 @@
 package cache
 
 import (
-	"k8s.io/client-go/tools/cache"
 	"time"
+
+	cache "k8s.io/client-go/tools/cache"
 )
 
 type SharedIndexInformer interface {

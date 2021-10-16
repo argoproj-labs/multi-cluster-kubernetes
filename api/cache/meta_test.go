@@ -1,11 +1,13 @@
 package cache
 
 import (
-	"github.com/argoproj-labs/multi-cluster-kubernetes/api/labels"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
+
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/labels"
 )
 
 func TestSplitMetaNamespaceKey(t *testing.T) {
