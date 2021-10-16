@@ -3,7 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
-	"github.com/argoproj-labs/multi-cluster-kubernetes/api/labels"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,6 +11,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/labels"
 )
 
 var resourceName = func(name string) string {

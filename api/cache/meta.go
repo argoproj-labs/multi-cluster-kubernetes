@@ -2,10 +2,12 @@ package cache
 
 import (
 	"fmt"
-	"github.com/argoproj-labs/multi-cluster-kubernetes/api/labels"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
+
+	"github.com/argoproj-labs/multi-cluster-kubernetes/api/labels"
 )
 
 func SplitMetaNamespaceKey(key string) (cluster, namespace, name string, err error) {
